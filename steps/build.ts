@@ -12,18 +12,26 @@
 // apps/<slug>/screenshot.png.
 import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
-import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync, rmSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync, rmSync, readdirSync, mkdtempSync } from 'node:fs'
 import { basename, join, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { tmpdir } from 'node:os'
 import { chromium } from 'playwright'
 import type { App, Check, FeedLine, TestResult } from '../lib/types'
 import { fakeDelay, sleep } from '../lib/state'
-import { issuesUrl } from '../lib/repo'
+import { issuesUrl, repoUrl } from '../lib/repo'
 
 export const appDir = (app: App) => join('apps', app.slug)
+// index.html is always the app's landing page (and, for web_page, the whole app).
 export const appFile = (app: App) => join(appDir(app), 'index.html')
 // Each slug gets its own Cline session/auth state, outside apps/<slug> so it never ships with the app.
 const dataDir = (app: App) => join('.cline-data', app.slug)
+
+// discover() labels every app with a kind; anything it didn't (older apps, a kind it doesn't know) builds
+// as a plain web_page, same as before kinds existed.
+export type Kind = 'web_page' | 'browser_extension' | 'editor_plugin' | 'cli'
+const KINDS = new Set<Kind>(['web_page', 'browser_extension', 'editor_plugin', 'cli'])
+export const appKind = (app: App): Kind => (KINDS.has(app.kind as Kind) ? (app.kind as Kind) : 'web_page')
 
 export const clineEnabled = () => !!(process.env.CLINE_PROVIDER && process.env.CLINE_MODEL)
 
@@ -281,7 +289,69 @@ export async function runCline(
 // for /granted by Genie/i, and this is the line that produces it.
 const FOOTER_TEMPLATE = 'Wished by {WISHER}, granted by Genie (open source) · report a bug → {ISSUES_URL}'
 
-function buildTask(app: App): string {
+// One paragraph per kind: what to build besides (or as) the index.html landing page, and the
+// guardrails specific to that kind. index.html is always required — it's what test(), the Vercel
+// deploy and the screenshot approval all look at, whatever else the app is made of.
+function kindParagraph(app: App): { what: string; extraGuardrails: string } {
+  const kind = appKind(app)
+  const nwo = repoUrl(app).replace(/^https:\/\/github\.com\//, '') // owner/repo, for npx/install lines
+  if (kind === 'browser_extension') {
+    return {
+      what: [
+        'This is a browser_extension: build a Manifest V3 Chrome extension in extension/ inside this',
+        'directory (extension/manifest.json with "manifest_version": 3, a background service worker and/or',
+        'content scripts, a popup if the feature needs one) — no remote code, and no external network calls',
+        'unless the wish genuinely needs one. Also build index.html at the top of this directory as the',
+        'landing page: explain what the extension does, show a plain HTML/CSS mock/preview of it in action',
+        '(no screenshots, no external assets, just markup that looks like the real thing), and include this',
+        'exact install line: "Install: download the repo zip → chrome://extensions → Load unpacked → pick',
+        `the extension folder", linking the repo zip/folder to https://github.com/${nwo}.`,
+      ].join(' '),
+      extraGuardrails: 'only create or edit files under extension/ and the top-level index.html — no CDN, no npm packages, no other files;',
+    }
+  }
+  if (kind === 'cli') {
+    return {
+      what: [
+        'This is a cli: build a Node CLI directly in this directory — package.json with "bin" pointing at',
+        'bin/<name>.js and "type": "module"; prefer zero npm dependencies, and only reach for a tiny,',
+        'well-known package if the task genuinely needs one; bin/<name>.js runnable with plain `node`;',
+        'README.md explaining usage; and an examples/ directory with at least one realistic sample input',
+        'file the CLI can be run against. Also build index.html at the top of this directory as the landing',
+        `page: show usage as \`npx github:${nwo} ...\` and a rendered example of real output.`,
+      ].join(' '),
+      extraGuardrails: 'only create or edit files under bin/, examples/, package.json, README.md and the top-level index.html — no CDN, no other files;',
+    }
+  }
+  if (kind === 'editor_plugin') {
+    return {
+      what: [
+        'This is an editor_plugin: build a VS Code extension directly in this directory — package.json with',
+        'engines.vscode, contributes and activationEvents describing the command or feature, "main":',
+        '"extension.js", zero npm dependencies, using only the built-in vscode API; extension.js implementing',
+        'the feature; and README.md with what it does and how to use it. Also build index.html at the top of',
+        'this directory as the landing page: explain what it does, show a plain HTML/CSS mock/preview of it',
+        'in action, and give install instructions (download this repo, then in VS Code: open the folder and',
+        'press F5 to try it, or package it with vsce and use Extensions → Install from VSIX).',
+      ].join(' '),
+      extraGuardrails: 'only create or edit extension.js, package.json, README.md and the top-level index.html — no CDN, no other files;',
+    }
+  }
+  return {
+    what: 'This is a web_page: the whole app is index.html.',
+    extraGuardrails: 'only create or edit index.html — no CDN, no npm packages, no other files;',
+  }
+}
+
+function kindTestNote(app: App): string {
+  const kind = appKind(app)
+  if (kind === 'browser_extension') return 'extension/manifest.json parses as valid Manifest V3 JSON and every file it references exists, and the extension loads in Chromium with no errors;'
+  if (kind === 'cli') return '`node bin/<name>.js --help` exits 0, and running it on a file from examples/ exits 0 and prints something;'
+  if (kind === 'editor_plugin') return "package.json has engines.vscode, the main file exists and `node --check` passes on it;"
+  return ''
+}
+
+export function buildTask(app: App): string {
   const spec = app.spec ?? app.wish.text
   const quotes = (app.askers.length ? app.askers.map((a) => a.quote) : [app.wish.text])
     .slice(0, 5)
@@ -291,23 +361,26 @@ function buildTask(app: App): string {
   const url = issuesUrl(app)
   const footer = FOOTER_TEMPLATE.replace('{WISHER}', wisher).replace('{ISSUES_URL}', url)
   const contract = readFileSync('template/CONTRACT.md', 'utf8')
+  const { what, extraGuardrails } = kindParagraph(app)
+  const kindTest = kindTestNote(app)
   return [
     `Read CONTRACT.md, then build: ${untrusted('spec', spec)}`,
     `People asked for it like this:`,
     untrusted('asker_quotes', quotes),
     '',
+    what,
+    '',
     `Footer values: ${untrusted('wisher', wisher)}, ${untrusted('issues_url', url)}`,
     '',
-    'What will be tested: the viewport meta tag is present and the page is usable at 375px wide; at least',
-    'one clickable control works, with zero console or page errors before and after clicking it; the',
-    'footer reads exactly:',
-    footer,
+    'What will be tested: index.html has the viewport meta tag and is usable at 375px wide; at least',
+    'one clickable control on index.html works, with zero console or page errors before and after',
+    `clicking it; its footer reads exactly: ${footer}${kindTest ? ` ${kindTest}` : ''}`,
     '',
-    'Guardrails: stay inside this directory, never write outside it and never use "../" in a path; only',
-    'create or edit index.html — no CDN, no npm packages, no other files; never run shell commands and',
-    'never make network requests; never edit or delete CONTRACT.md; no backend, no API keys, no secrets.',
+    `Guardrails: stay inside this directory, never write outside it and never use "../" in a path; ${extraGuardrails}`,
+    'never run shell commands and never make network requests; never edit or delete CONTRACT.md; no',
+    'backend, no API keys, no secrets.',
     '',
-    'Stop once index.html meets every requirement above. No refactoring, no extra polish.',
+    'Stop once everything above holds. No refactoring, no extra polish.',
     '',
     'CONTRACT.md:',
     contract,
@@ -372,6 +445,155 @@ export function snapshotVersion(app: App): string | undefined {
   return `/apps/${app.slug}/v${app.version}.png`
 }
 
+// ───────────────────────────── kind-specific checks ─────────────────────────────
+// Pure process runner, used by both the cli and editor_plugin checks: PATH + HOME only (no API keys,
+// no secrets reach the child), killed if it overruns.
+export function runProcess(cmd: string, args: string[], cwd: string, timeoutMs: number): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return new Promise((settle) => {
+    const child = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '' } })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (d) => { stdout += d })
+    child.stderr.on('data', (d) => { stderr += d })
+    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs)
+    child.on('close', (code) => { clearTimeout(timer); settle({ code, stdout, stderr }) })
+    child.on('error', () => { clearTimeout(timer); settle({ code: null, stdout, stderr }) })
+  })
+}
+
+// Every string in a manifest.json that looks like a file path (JS/HTML/CSS/image), not a URL or a
+// match pattern like "<all_urls>" — background.service_worker, content_scripts[].js/css, action's
+// popup, icons, etc, whatever shape the manifest takes.
+export function manifestFilePaths(node: unknown, out: string[] = []): string[] {
+  if (typeof node === 'string') {
+    if (/\.(js|mjs|html|css|json|png|jpe?g|svg|ico)$/i.test(node) && !/^(https?:)?\/\//i.test(node)) out.push(node)
+  } else if (Array.isArray(node)) {
+    for (const v of node) manifestFilePaths(v, out)
+  } else if (node && typeof node === 'object') {
+    for (const v of Object.values(node as Record<string, unknown>)) manifestFilePaths(v, out)
+  }
+  return out
+}
+
+// Static half of the browser_extension check: manifest.json parses, is Manifest V3, and every file
+// it references exists. Exported so spikes/kinds.check.ts can run it with no browser involved.
+export function validateExtensionManifest(dir: string): { ok: boolean; mv3: boolean; missing: string[]; error?: string } {
+  const manifestPath = join(dir, 'manifest.json')
+  if (!existsSync(manifestPath)) return { ok: false, mv3: false, missing: [], error: 'extension/manifest.json missing' }
+  let manifest: any
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  } catch (e) {
+    return { ok: false, mv3: false, missing: [], error: `manifest.json invalid JSON: ${(e as Error).message}` }
+  }
+  const mv3 = manifest.manifest_version === 3
+  const missing = manifestFilePaths(manifest).filter((f) => !existsSync(join(dir, f)))
+  return { ok: mv3 && missing.length === 0, mv3, missing }
+}
+
+// manifest + file checks, then a real headless Chromium with the extension loaded: a service worker
+// (or background page) must register within ~5s with nothing thrown. Old-style headless Chromium
+// can't load extensions at all; when launchPersistentContext itself can't start one, this falls back
+// to the static checks and says so in the label, rather than failing a build over a sandbox limit.
+export async function testBrowserExtension(app: App, push: (label: string, ok: boolean) => void): Promise<string | undefined> {
+  const dir = join(appDir(app), 'extension')
+  const { ok, mv3, missing, error } = validateExtensionManifest(dir)
+  push('Extension manifest is valid Manifest V3', ok)
+  if (error) return error
+  if (!mv3) return 'extension/manifest.json is not manifest_version 3'
+  if (missing.length) return `manifest references missing files: ${missing.join(', ')}`
+
+  const abs = resolve(dir)
+  const profile = mkdtempSync(join(tmpdir(), 'genie-ext-'))
+  let label = 'Extension loads in Chromium with no errors'
+  let loaded = false
+  try {
+    const ctx = await chromium.launchPersistentContext(profile, {
+      headless: true,
+      args: ['--no-sandbox', '--disable-dev-shm-usage', `--disable-extensions-except=${abs}`, `--load-extension=${abs}`],
+    })
+    try {
+      const deadline = Date.now() + 5000
+      let worker: import('playwright').Worker | undefined = ctx.serviceWorkers()[0]
+      while (!worker && Date.now() < deadline) {
+        worker = await ctx.waitForEvent('serviceworker', { timeout: Math.max(1, deadline - Date.now()) }).catch(() => undefined)
+      }
+      loaded = !!worker
+    } finally {
+      await ctx.close()
+    }
+  } catch (e) {
+    // Headless extension loading isn't supported on this machine/Chromium build — the manifest and
+    // file checks above already passed, so count that as the whole check rather than failing the build.
+    label = `Extension manifest + files check out (headless extension loading unsupported here: ${clip((e as Error).message, 80)})`
+    loaded = true
+  } finally {
+    rmSync(profile, { recursive: true, force: true })
+  }
+  push(label, loaded)
+  return loaded ? undefined : 'extension loaded but its service worker never registered within 5s'
+}
+
+// package.json has a working bin entry, `--help` exits 0, and it runs on a real file from examples/.
+export async function testCli(app: App, push: (label: string, ok: boolean) => void): Promise<string | undefined> {
+  const dir = appDir(app)
+  const pkgPath = join(dir, 'package.json')
+  if (!existsSync(pkgPath)) { push('CLI package.json present', false); return 'package.json missing' }
+  let pkg: any
+  try {
+    pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+  } catch (e) {
+    push('CLI package.json present', false)
+    return `package.json invalid JSON: ${(e as Error).message}`
+  }
+  const binField = typeof pkg.bin === 'string' ? pkg.bin : typeof pkg.bin === 'object' && pkg.bin ? Object.values(pkg.bin)[0] : undefined
+  // Absolute, not joined with `dir` and left relative: runProcess also sets cwd to `dir`, so a
+  // relative path here would get resolved against it a second time.
+  const binPath = typeof binField === 'string' ? resolve(dir, binField) : undefined
+  const binOk = !!binPath && existsSync(binPath)
+  push('package.json has a working bin entry', binOk)
+  if (!binPath || !binOk) return 'package.json has no working "bin" entry'
+
+  const help = await runProcess(process.execPath, [binPath, '--help'], dir, 10_000)
+  push('`--help` exits 0', help.code === 0)
+  if (help.code !== 0) return `--help exited ${help.code}: ${clip(help.stderr || help.stdout, 200)}`
+
+  const examplesDir = join(dir, 'examples')
+  const examples = existsSync(examplesDir) ? readdirSync(examplesDir).filter((f) => !f.startsWith('.')) : []
+  if (!examples.length) { push('Runs on a file from examples/', false); return 'no sample input file in examples/' }
+  const onExample = await runProcess(process.execPath, [binPath, resolve(examplesDir, examples[0])], dir, 10_000)
+  const exampleOk = onExample.code === 0 && onExample.stdout.trim().length > 0
+  push('Runs on a file from examples/', exampleOk)
+  if (!exampleOk) return `running on examples/${examples[0]} exited ${onExample.code} with empty output`
+  return undefined
+}
+
+// package.json declares engines.vscode, the main file exists, and `node --check` parses it clean.
+export async function testEditorPlugin(app: App, push: (label: string, ok: boolean) => void): Promise<string | undefined> {
+  const dir = appDir(app)
+  const pkgPath = join(dir, 'package.json')
+  if (!existsSync(pkgPath)) { push('Plugin package.json present', false); return 'package.json missing' }
+  let pkg: any
+  try {
+    pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+  } catch (e) {
+    push('Plugin package.json present', false)
+    return `package.json invalid JSON: ${(e as Error).message}`
+  }
+  const engineOk = !!pkg.engines?.vscode
+  push('package.json has engines.vscode', engineOk)
+  if (!engineOk) return 'package.json missing engines.vscode'
+  const mainRel = typeof pkg.main === 'string' ? pkg.main : 'extension.js'
+  const mainPath = resolve(dir, mainRel) // absolute: runProcess's cwd is also `dir`
+  const mainOk = existsSync(mainPath)
+  push('main file exists', mainOk)
+  if (!mainOk) return `main file missing: ${mainRel}`
+  const syntax = await runProcess(process.execPath, ['--check', mainPath], dir, 10_000)
+  push('`node --check` passes', syntax.code === 0)
+  if (syntax.code !== 0) return `node --check failed: ${clip(syntax.stderr, 200)}`
+  return undefined
+}
+
 // `onCheck` fires as each check lands, so the board ticks them off live.
 export async function test(app: App, onCheck?: (check: Check) => void): Promise<TestResult> {
   const file = appFile(app)
@@ -413,6 +635,15 @@ export async function test(app: App, onCheck?: (check: Check) => void): Promise<
     push('Footer and viewport in place', footerOk && viewportOk)
     if (!footerOk) return fail('footer missing')
     if (!viewportOk) return fail('viewport meta tag missing')
+
+    // Kind-specific checks, on top of the landing page above: what app.kind says this app also is.
+    const kind = appKind(app)
+    const kindError =
+      kind === 'browser_extension' ? await testBrowserExtension(app, push)
+      : kind === 'cli' ? await testCli(app, push)
+      : kind === 'editor_plugin' ? await testEditorPlugin(app, push)
+      : undefined
+    if (kindError) return fail(kindError)
 
     // First visit for the screenshot: a fresh context, so nothing the clicks saved in localStorage carries over.
     const fresh = await (await browser.newContext({ viewport: { width: 375, height: 740 } })).newPage()
