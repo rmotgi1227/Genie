@@ -276,7 +276,7 @@
       <ol id="library"></ol>
       <div id="rpreview" class="rpreview hide"></div>
       <div id="issue">
-        <div id="watching" class="live-line"><i></i><span>Watching GitHub issues and r/GenieGrants</span></div>
+        <div id="watching" class="live-line"><i></i><span>Watching Reddit and GitHub issues</span></div>
       </div>
     </section>
   </div>
@@ -557,7 +557,7 @@ function renderLeft(s, app) {
     $('#preview').classList.toggle('short', stage === 'awaiting_post_approval')
     renderPreview(app)
     const line = LIVE(app)
-      ? `<a class="post" href="${esc(app.launchUrl ?? '#')}" target="_blank" rel="noopener"><span class="ico">r/</span><span class="b"><span class="h">${esc(app.launchTitle ?? 'Posted')}</span><span class="m"><b>r/GenieGrants</b> · ${app.wish.author ? `tagged u/${esc(app.wish.author)} · ` : ''}${esc(short(app.launchUrl))} · Composio ${dur(app.launch)}</span></span></a>`
+      ? `<a class="post" href="${esc(app.launchUrl || app.wish.url || '#')}" target="_blank" rel="noopener"><span class="ico">r/</span><span class="b"><span class="h">${esc(app.launchUrl ? app.launchTitle ?? 'Replied' : 'Live, no Reddit reply')}</span><span class="m">${esc(short(app.launchUrl || app.wish.url))} · Composio ${dur(app.launch)}</span></span></a>`
       : stage === 'shelved' ? `<div class="live-line"><span>Kept private</span></div>` : ''
     setHTML($('#postLine'), line)
   } else { $('#preview').innerHTML = ''; previewKey = ''; $('#postLine').innerHTML = ''; $('#made').innerHTML = '' }
@@ -616,7 +616,7 @@ function renderRight(s) {
 
   // 2. the request as Genie saw it
   const num = issue.url?.match(/issues\/(\d+)/)?.[1]
-  const where = issue.source === 'github' ? 'GitHub' : issue.source === 'reddit' ? 'r/GenieGrants' : 'iMessage'
+  const where = issue.source === 'github' ? 'GitHub' : issue.source === 'reddit' ? 'Reddit' : 'iMessage'
   const who = issue.author ? `${issue.source === 'reddit' ? 'u/' : '@'}${esc(issue.author.replace(/^[@]|^u\//, ''))}` : ''
   const verb = issue.kind === 'bug' ? 'fixing' : 'adding'
   const items = [{ key: issue.id, tag: 'a', cls: 'req', attrs: { href: issue.url ?? '#', target: '_blank', rel: 'noopener' }, html: `<div class="k"><span class="gh">${issue.source === 'github' ? 'gh' : 'r/'}</span><span class="tag"><b>${issue.kind === 'bug' ? 'Bug report' : 'Feature request'}</b> · ${esc(where)}${num ? ` #${num}` : ''}${who ? ` · ${who}` : ''} · ${ago(issue.reportedAt)}</span></div><q>${esc(issue.text)}</q>${st === 'fixed' || st === 'declined' ? '' : `<div class="on">on <b>${esc(name(app))}</b><span class="u">${esc(short(issue.url))}</span></div>`}` }]
@@ -680,11 +680,11 @@ function renderFooter(s, app) {
 let qrFor = ''
 function renderQR(s) {
   const live = s.apps.filter(LIVE).at(-1)
-  const url = s.sample ? 'https://www.reddit.com/r/GenieGrants/' : live?.pagesUrl ?? live?.launchUrl ?? 'https://www.reddit.com/r/GenieGrants/'
+  const url = live?.pagesUrl ?? live?.launchUrl ?? 'https://github.com/genie-wishes'
   show($('#qr'), typeof QRCode !== 'undefined')
   if (qrFor === url || typeof QRCode === 'undefined') return
   qrFor = url
-  $('#qr').innerHTML = `<div class="code"></div><div class="l"><b>${url.includes('reddit') ? 'r/GenieGrants' : 'Open the app'}</b>${esc(url.replace(/^https?:\/\/(www\.)?/, ''))}</div>`
+  $('#qr').innerHTML = `<div class="code"></div><div class="l"><b>Open the app</b>${esc(url.replace(/^https?:\/\/(www\.)?/, ''))}</div>`
   new QRCode($('#qr .code'), { text: url, width: 62, height: 62, colorDark: '#0d0c0a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M })
 }
 

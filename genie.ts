@@ -170,7 +170,7 @@ async function buildAndLaunch(app: App, resumeFrom?: Stage): Promise<boolean> {
   // Step 5: second approval, with the screenshot.
   while (true) {
     advance(app.slug, 'awaiting_post_approval', { screenshot: t.screenshot })
-    const { r, reply } = await ask(app, 'post', `Here's ${app.spec}. Post it to r/GenieGrants? ${HELP_POST}.`, HELP_POST, { image: t.screenshot })
+    const { r, reply } = await ask(app, 'post', `Here's ${app.spec}. Reply to u/${app.wish.author} on Reddit with the link? ${HELP_POST}.`, HELP_POST, { image: t.screenshot })
     if (r === 'yes') break
     if (r === 'no' || r === 'different') {
       advance(app.slug, 'shelved')
@@ -374,7 +374,7 @@ async function seedLibrary() {
     app.launch = { startedAt: at.awaiting_post_approval! + 12_000, endedAt: at.launched! }
     app.approvals = [
       { kind: 'build', text: `${uniqueAuthors(app.askers)} people want ${app.spec}. ${app.why} ${HELP}.`, askedAt: at.awaiting_approval!, reply: 'yes', repliedAt: at.awaiting_approval! + 9_000 },
-      { kind: 'post', text: `Here's ${app.spec}. Post it to r/GenieGrants? ${HELP_POST}.`, askedAt: at.awaiting_post_approval!, reply: 'yes', repliedAt: at.awaiting_post_approval! + 12_000 },
+      { kind: 'post', text: `Here's ${app.spec}. Reply to u/${app.wish.author} on Reddit with the link? ${HELP_POST}.`, askedAt: at.awaiting_post_approval!, reply: 'yes', repliedAt: at.awaiting_post_approval! + 12_000 },
     ]
     state.apps.push(app)
     await build(app)
@@ -383,7 +383,9 @@ async function seedLibrary() {
     const t = await test(app)
     app.checks = [WRITING, ...(t.checks ?? [])]
     app.screenshot = t.screenshot
-    Object.assign(app, await launch(app))
+    // Sample apps never touch Vercel or Reddit, even when real keys are set: they're local and marked as samples.
+    const sub = app.wish.url.match(/reddit\.com\/r\/([^/]+)/i)?.[1]
+    Object.assign(app, { pagesUrl: `http://localhost:${PORT}/apps/${app.slug}/`, launchPostId: `sample_${app.slug.slice(0, 8)}`, launchTitle: `Replied to u/${app.wish.author}${sub ? ` on r/${sub}` : ''}`, launchUrl: app.wish.url })
     app.stage = 'maintaining'
     snapshotVersion(app)
     save()
