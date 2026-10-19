@@ -76,6 +76,9 @@ export type App = {
   wish: { text: string; author: string; url: string; source: 'reddit' | 'imessage' }
   spec?: string // one-line spec from triage, doubles as the app's name
   why?: string // one line on why this wish, goes in the approval text
+  kind?: string // discover()'s buildability label: 'web_page' | 'browser_extension' | 'editor_plugin' | 'cli' | 'needs_backend' | 'not_software'
+  upvotes?: number // the wish's own Reddit score, carried through from discover() for ranking
+  starPotential?: 'high' | 'medium' | 'low' // discover()'s guess at whether developers would star an open-source repo of this
   askers: Asker[]
   stage: Stage
   url?: string // served by our box: /apps/<slug>/

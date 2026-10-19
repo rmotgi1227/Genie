@@ -12,7 +12,7 @@ import { writeFileSync, mkdirSync } from 'node:fs'
 import type { App, Asker, Search, State } from '../lib/types'
 import { state, save, advance, slugify, uniqueAuthors } from '../lib/state'
 import { parallelEnabled, search, respond, obj, str, bool, en, arr, type SearchHit } from '../lib/parallel'
-import { redditPost, mapLimit } from '../lib/reddit'
+import { redditPost, redditListing, redditComments, postIdFromUrl, isRequestPost, looksLikeJoke, mapLimit, type RedditPost, type RedditComment } from '../lib/reddit'
 import { scrub } from '../lib/guard'
 import * as fake from './discover.fake'
 
@@ -20,6 +20,10 @@ const REDDIT = ['reddit.com']
 const TOP_N = Number(process.env.VALIDATE_TOP_N ?? 3)
 const DAYS_BACK = Number(process.env.DISCOVER_DAYS_BACK ?? 120)
 const REDDIT_CONCURRENCY = 4
+const MAX_DISCOVER_HITS = 80
+const TOP_COMMENTS_PER_THREAD = 15
+const BUILD_KINDS = new Set((process.env.BUILD_KINDS ?? 'web_page,browser_extension').split(',').map((s) => s.trim()).filter(Boolean))
+const STAR_RANK: Record<string, number> = { high: 2, medium: 1, low: 0 }
 
 export function newApp(text: string, author: string, source: 'reddit' | 'imessage', url: string, existingSlugs: Set<string> = new Set()): App {
   return { slug: shortSlug(text, existingSlugs), wish: { text, author, url, source }, askers: [], stage: 'found', issues: [], version: 0 }
@@ -91,6 +95,125 @@ export function shortSlug(text: string, existingSlugs: Set<string>): string {
 }
 
 // ── discover ──
+// Three sources, highest priority first: (a) Composio reads the top comments on "what tool do you wish
+// existed" megathreads — every comment is its own wish, with a real author and score straight from
+// Reddit; (b) Composio reads a handful of subreddit listings and keeps request-shaped posts; (c) the
+// original Parallel "I wish there was a tool that…" search, kept as a fallback, lowest priority.
+const redditUrl = (permalink: string) => (permalink.startsWith('http') ? permalink : `https://www.reddit.com${permalink}`)
+
+type SourceHit = SearchHit & { subreddit: string; author: string; score?: number; query: string }
+
+export function commentToHit(threadTitle: string, subreddit: string, query: string, comment: RedditComment): SourceHit {
+  return {
+    url: canon(redditUrl(comment.permalink)),
+    title: threadTitle,
+    publish_date: comment.created_utc ? new Date(comment.created_utc * 1000).toISOString() : null,
+    excerpts: [comment.body],
+    subreddit,
+    author: comment.author ?? '',
+    score: comment.score,
+    query,
+  }
+}
+
+export function listingToHit(post: RedditPost, query: string): SourceHit {
+  return {
+    url: canon(redditUrl(post.permalink)),
+    title: post.title,
+    publish_date: post.created_utc ? new Date(post.created_utc * 1000).toISOString() : null,
+    excerpts: [post.selftext ?? ''],
+    subreddit: post.subreddit,
+    author: post.author ?? '',
+    score: post.score,
+    query,
+  }
+}
+
+const WISH_THREAD_QUERIES = [
+  'what dev tool do you wish existed',
+  'what tool do you wish existed',
+  'what browser extension do you wish existed',
+  'what software do you wish existed',
+  'what app do you wish existed',
+]
+// Known-good megathreads, always read even if Parallel's search turns up nothing new this sweep.
+const SEED_WISH_THREADS = ['1iyyzcs', '17u929n', '1mslx4r', '1ttxi2k', '194ugw3', '1wus8s7', '1x0wvyy']
+const LISTING_SUBREDDITS = ['SomebodyMakeThis', 'AppIdeas', 'chrome_extensions', 'vscode', 'webdev', 'software', 'selfhosted', 'opensource', 'devops', 'productivity']
+const WISH_THREAD_OBJECTIVE =
+  'Reddit megathreads whose title itself asks "what tool/app/browser extension/software do you wish existed", where the top-level replies ' +
+  'each name a different wish. Return the thread itself, not an individual reply.'
+
+// (a) megathreads: each top-level, non-joke, non-deleted comment over 25 characters is its own wish,
+// with the comment's own author, score and permalink — no model needed to find the author here.
+async function wishThreadHits(d: NonNullable<State['discovery']>, after: string): Promise<SourceHit[]> {
+  const s: Search = { query: 'wish megathreads (Composio)', startedAt: Date.now(), found: 0 }
+  d.searches.push(s)
+  save()
+  const out: SourceHit[] = []
+  try {
+    const ids = new Set(SEED_WISH_THREADS)
+    if (parallelEnabled()) {
+      for (let i = 0; i < WISH_THREAD_QUERIES.length; i += 5) {
+        const chunk = WISH_THREAD_QUERIES.slice(i, i + 5)
+        const got = await search({ objective: WISH_THREAD_OBJECTIVE, queries: chunk, domains: REDDIT, maxResults: 6, afterDate: after }).catch((e) => {
+          console.log(`[reddit] wish-thread search failed: ${(e as Error).message}`)
+          return [] as SearchHit[]
+        })
+        for (const h of got) {
+          if (!isThread(h.url)) continue
+          const id = postIdFromUrl(h.url)
+          if (id) ids.add(id)
+        }
+      }
+    }
+    const threads = await mapLimit([...ids], REDDIT_CONCURRENCY, (id) => redditComments(id, { limit: 40 }))
+    for (const { post, comments } of threads) {
+      if (!post) continue
+      const top = comments
+        .filter((c) => (c.depth ?? 0) === 0 && c.author && c.author !== '[deleted]' && c.body && c.body.length >= 25 && !looksLikeJoke(c.body))
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+        .slice(0, TOP_COMMENTS_PER_THREAD)
+      for (const c of top) {
+        const hit = commentToHit(post.title, post.subreddit, 'wish-thread', c)
+        out.push(hit)
+        d.hits.push({ title: scrub(hit.title ?? '', 200), subreddit: hit.subreddit, author: hit.author || undefined, url: hit.url, postedAt: hit.publish_date ?? undefined, query: hit.query, foundAt: Date.now() })
+      }
+    }
+  } catch (e) {
+    console.log(`[reddit] wish threads failed: ${(e as Error).message}`)
+  }
+  s.found = out.length
+  s.endedAt = Date.now()
+  save()
+  return out
+}
+
+// (b) subreddit listings: cheap regex keeps only request-shaped posts ("is there an app that…",
+// "looking for…", "someone should build…", "I wish…", "does … exist") and drops launches.
+async function listingHits(d: NonNullable<State['discovery']>): Promise<SourceHit[]> {
+  const s: Search = { query: 'subreddit listings (Composio)', startedAt: Date.now(), found: 0 }
+  d.searches.push(s)
+  save()
+  const out: SourceHit[] = []
+  try {
+    const lists = await mapLimit(LISTING_SUBREDDITS, REDDIT_CONCURRENCY, (sub) => redditListing(sub, { sort: 'new', maxResults: 50 }))
+    for (const posts of lists) {
+      for (const p of posts) {
+        if (!p.author || p.author === '[deleted]' || !isRequestPost(p.title, p.selftext)) continue
+        const hit = listingToHit(p, 'subreddit-listing')
+        out.push(hit)
+        d.hits.push({ title: scrub(hit.title ?? '', 200), subreddit: hit.subreddit, author: hit.author || undefined, url: hit.url, postedAt: hit.publish_date ?? undefined, query: hit.query, foundAt: Date.now() })
+      }
+    }
+  } catch (e) {
+    console.log(`[reddit] subreddit listings failed: ${(e as Error).message}`)
+  }
+  s.found = out.length
+  s.endedAt = Date.now()
+  save()
+  return out
+}
+
 const DISCOVERY_OBJECTIVE =
   'Reddit posts where the author personally wants a specific software tool, app or website to exist, to solve a concrete problem they have right now. ' +
   'For example: "I wish there was an app/tool/site that…", "someone should build…", "is there a tool that can…". ' +
@@ -108,7 +231,8 @@ type Grouped = {
     one_line_spec: string
     is_genuine_wish: boolean
     safety: 'ok' | 'refuse'
-    buildability: 'single_page' | 'needs_backend' | 'not_software'
+    kind: 'web_page' | 'browser_extension' | 'editor_plugin' | 'cli' | 'needs_backend' | 'not_software'
+    star_potential: 'high' | 'medium' | 'low'
     hit_indexes: number[]
     wisher_author: string
   }[]
@@ -117,45 +241,75 @@ type Grouped = {
 export async function discover(): Promise<App[]> {
   if (!parallelEnabled()) return fake.discover()
   try {
-    console.log('[parallel] searching reddit for wishes')
-    const d: NonNullable<State['discovery']> = (state.discovery = { startedAt: Date.now(), queries: DISCOVERY_QUERIES, searches: [], hits: [] })
+    console.log('[reddit] gathering wishes: megathreads, subreddit listings, Parallel search')
+    const d: NonNullable<State['discovery']> = (state.discovery = { startedAt: Date.now(), queries: [...WISH_THREAD_QUERIES, ...DISCOVERY_QUERIES], searches: [], hits: [] })
     save()
     const after = new Date(Date.now() - DAYS_BACK * 864e5).toISOString().slice(0, 10)
-    // one call per query, so the board shows each search as it runs and the posts as they come back
-    const hits: SearchHit[] = []
+
+    const [wishHits, listHits] = await Promise.all([wishThreadHits(d, after), listingHits(d)])
+
+    // (c) Parallel's own search, lowest priority: one call per query, so the board shows each search
+    // as it runs and the posts as they come back.
+    const parallelHits: SourceHit[] = []
     for (const query of DISCOVERY_QUERIES) {
       const s: Search = { query, startedAt: Date.now(), found: 0 }
       d.searches.push(s)
       save()
-      const got = (await search({ objective: DISCOVERY_OBJECTIVE, queries: [query], domains: REDDIT, maxResults: 8, afterDate: after })).filter((h) => isThread(h.url) && !hits.some((x) => canon(x.url) === canon(h.url)))
+      const got = (
+        await search({ objective: DISCOVERY_OBJECTIVE, queries: [query], domains: REDDIT, maxResults: 8, afterDate: after }).catch((e) => {
+          console.log(`[parallel] discovery search failed: ${(e as Error).message}`)
+          return [] as SearchHit[]
+        })
+      ).filter((h) => isThread(h.url) && !parallelHits.some((x) => x.url === canon(h.url)))
       for (const h of got) {
-        hits.push(h)
-        d.hits.push({ title: scrub(h.title ?? '', 200).replace(/\s*:\s*r\/\w+\s*$/, ''), subreddit: sub(h.url), author: authorFromText(h.excerpts.join(' ')), url: canon(h.url), postedAt: h.publish_date ?? undefined, query, foundAt: Date.now() })
+        const hit: SourceHit = { ...h, url: canon(h.url), subreddit: sub(h.url), author: authorFromText(h.excerpts.join(' ')) ?? '', query }
+        parallelHits.push(hit)
+        d.hits.push({ title: scrub(h.title ?? '', 200).replace(/\s*:\s*r\/\w+\s*$/, ''), subreddit: hit.subreddit, author: hit.author || undefined, url: hit.url, postedAt: h.publish_date ?? undefined, query, foundAt: Date.now() })
       }
       s.found = got.length
       s.endedAt = Date.now()
       save()
     }
+
+    // wish threads, then subreddit listings, then Parallel search, in that priority order, capped so
+    // one grouping call never sees more than MAX_DISCOVER_HITS hits
+    const seen = new Set<string>()
+    const hits: SourceHit[] = []
+    for (const h of [...wishHits, ...listHits, ...parallelHits]) {
+      if (hits.length >= MAX_DISCOVER_HITS) break
+      if (seen.has(h.url)) continue
+      seen.add(h.url)
+      hits.push(h)
+    }
     dump('discover.search', hits)
     d.endedAt = Date.now()
     save()
-    console.log(`[parallel] ${hits.length} reddit threads, grouping into wishes`)
+    console.log(`[reddit] ${hits.length} hits (${wishHits.length} wish-thread comments, ${listHits.length} subreddit posts, ${parallelHits.length} Parallel), grouping into wishes`)
 
-    const list = hits.map((h, i) => `#${i} ${h.url}\nTITLE: ${scrub(h.title ?? '', 200)}\n${scrub(h.excerpts.join(' '), 600)}`).join('\n\n')
+    // Parallel's Responses API caps input+instructions at 20,000 characters; MAX_DISCOVER_HITS hits
+    // with a 600-char excerpt each blew past that, so each hit gets a short, no-URL line instead
+    // (the URL only matters once a hit is picked, via hit_indexes, not for the grouping prompt itself).
+    const list = hits.map((h, i) => `#${i} ${scrub(h.title ?? '', 90)}: ${scrub(h.excerpts.join(' '), 180)}`).join('\n')
     const grouped = await respond<Grouped>({
       name: 'wishes',
       input:
         `Below are Reddit search hits. Group them into distinct wishes for a software tool that doesn't exist yet. ` +
         `For each wish give a one-line spec of the tool, whether it's a genuine personal wish (not a promo, launch, job post, review or joke), ` +
-        `whether building it is safe and appropriate, whether it fits in a single static web page with no backend, the indexes of the hits ` +
-        `that ask for it, and the Reddit username of the original poster of the first hit if it appears in the text (else empty string).\n\n${list}`,
+        `whether building it is safe and appropriate, what kind of software it is, how likely developers would be to star an open-source repo ` +
+        `of it, the indexes of the hits that ask for it, and the Reddit username of the original poster of the first hit if it appears in the ` +
+        `text (else empty string).\n\n` +
+        `kind: "web_page" if it can run entirely in the browser with no backend, even if the wish calls it "an app" (a calculator, a converter, ` +
+        `a game, a timer); "browser_extension" if it has to be a Chrome/Firefox extension; "editor_plugin" if it has to be a VS Code/JetBrains/` +
+        `neovim plugin; "cli" if it has to be a command-line tool; "needs_backend" if it truly needs a server, database or user accounts; ` +
+        `"not_software" if it isn't a software wish at all.\n\n${list}`,
       schema: obj({
         wishes: arr(
           obj({
             one_line_spec: str('e.g. "a bill splitter that splits by item"'),
             is_genuine_wish: bool(),
             safety: en(['ok', 'refuse']),
-            buildability: en(['single_page', 'needs_backend', 'not_software']),
+            kind: en(['web_page', 'browser_extension', 'editor_plugin', 'cli', 'needs_backend', 'not_software']),
+            star_potential: en(['high', 'medium', 'low'], 'would developers star an open-source GitHub repo of this?'),
             hit_indexes: arr({ type: 'integer' }),
             wisher_author: str('Reddit username without u/, or empty'),
           }),
@@ -168,19 +322,29 @@ export async function discover(): Promise<App[]> {
     // seed uniqueness against every slug already in play, not just this batch, since short-but-common
     // specs ("a bill splitter…") now collide more often than the old 40-char slugify(text) did
     const slugs = new Set([...state.apps, ...state.candidates].map((a) => a.slug))
-    const apps: App[] = []
+    // pick order: genuine + safe + buildable kind (filtered above by BUILD_KINDS), then star_potential,
+    // then unique askers + upvotes — all counted in code, never left to the model
+    const ranked: { app: App; rank: number }[] = []
     for (const w of grouped.wishes) {
-      if (!w.is_genuine_wish || w.safety !== 'ok' || w.buildability !== 'single_page') continue
+      if (!w.is_genuine_wish || w.safety !== 'ok' || !BUILD_KINDS.has(w.kind)) continue
       const hit = hits[w.hit_indexes[0] ?? -1]
       if (!hit) continue
-      const author = w.wisher_author || authorFromText(hit.excerpts.join(' ')) || ''
-      const app = newApp(w.one_line_spec, author, 'reddit', canon(hit.url), slugs)
+      const author = hit.author || w.wisher_author || authorFromText(hit.excerpts.join(' ')) || ''
+      const app = newApp(w.one_line_spec, author, 'reddit', hit.url, slugs)
       if (!app.slug) continue // shortSlug can return '' if the spec has no alphanumerics at all
       slugs.add(app.slug)
       app.spec = w.one_line_spec
       app.wish.text = scrub(hit.title ?? w.one_line_spec, 200).replace(/\s*:\s*r\/\w+\s*$/, '')
-      apps.push(app)
+      app.kind = w.kind
+      app.upvotes = hit.score
+      app.starPotential = w.star_potential
+      // best-effort askers straight from the grouped hits' own authors; validate() will replace these
+      // with its own Parallel-checked list, but they're real (not model-guessed) and worth keeping meanwhile
+      app.askers = dedupe(w.hit_indexes.map((i) => hits[i]).filter((h): h is SourceHit => !!h && !!h.author).map((h) => ({ author: h.author, url: h.url, quote: scrub(h.excerpts.join(' '), 160), source: `r/${h.subreddit}`, postedAt: h.publish_date ?? undefined })))
+      ranked.push({ app, rank: (STAR_RANK[w.star_potential] ?? 0) * 1000 + uniqueAuthors(app.askers) * 10 + (hit.score ?? 0) })
     }
+    ranked.sort((a, b) => b.rank - a.rank)
+    const apps = ranked.map((r) => r.app)
 
     // Parallel's excerpt sometimes has no u/name and the Responses call above came back with wisher_author
     // empty too; Composio Reddit fills that gap, a few threads at a time so Genie never fires a burst of calls.
@@ -194,7 +358,7 @@ export async function discover(): Promise<App[]> {
     console.log(`[parallel] ${apps.length} buildable wishes`)
     return apps
   } catch (e) {
-    // fail soft: a bad Parallel sweep shouldn't take the loop down, just skip this round
+    // fail soft: a bad sweep shouldn't take the loop down, just skip this round
     console.log(`[parallel] discover failed: ${(e as Error).message}`)
     return []
   }
@@ -300,7 +464,7 @@ export async function validate(candidates: App[]): Promise<App[]> {
       console.log(`[parallel] validate ${app.slug} failed: ${(e as Error).message}`)
     }
   }
-  return out.sort((a, b) => uniqueAuthors(b.askers) - uniqueAuthors(a.askers))
+  return out.sort((a, b) => uniqueAuthors(b.askers) - uniqueAuthors(a.askers) || (b.upvotes ?? 0) - (a.upvotes ?? 0))
 }
 
 // ── triage ──
