@@ -1,29 +1,84 @@
-// COMPOSIO + GITHUB — publish, post to r/GenieGrants, poll reports, reply on them. FAKE for now.
-// REAL publish:      `git push` apps/<slug>/ to the Pages repo with GITHUB_TOKEN.
-// REAL launch:       Composio REDDIT_CREATE_REDDIT_POST in r/GenieGrants (tags u/<wisher>, links the askers' threads).
-// REAL pollReports:  GitHub issues on the wishes repo (title or label carries the app slug) + comments on
-//                    each launch post (`<post>.json` or Composio). One call covers every live app.
-// REAL resolveIssue: GITHUB_CREATE_AN_ISSUE_COMMENT + GITHUB_UPDATE_AN_ISSUE (state=closed), or
-//                    REDDIT_POST_REDDIT_COMMENT for a Reddit report.
+// COMPOSIO + REDDIT + VERCEL — publish via Vercel, reply on the wisher's own thread. REAL launch side
+// when COMPOSIO_API_KEY is set (waitForLive/replyText/replyReal/launch); publish() always deploys for
+// real via steps/deploy.ts (fake there when VERCEL_TOKEN is unset). pollReports/resolveIssue and the
+// fake-reports block below are still fake — a teammate owns the GitHub issues side and will replace them.
 import type { App, Issue, Report } from '../lib/types'
-import { fakeDelay, uniqueAuthors } from '../lib/state'
+import { fakeDelay, sleep, uniqueAuthors } from '../lib/state'
 import { approvalsAreFake } from './askApproval'
-
-const PAGES_BASE = process.env.PAGES_BASE ?? 'https://genie-wishes.github.io/wishes'
+import { tool, composioEnabled } from '../lib/composio'
+import { repoUrl } from '../lib/repo'
+import { postIdFromUrl } from '../lib/reddit'
+import { deploy } from './deploy'
 
 export async function publish(app: App): Promise<string> {
   console.log(`[github] git push ${app.slug} v${app.version} (fake)`)
   await fakeDelay()
-  return `${PAGES_BASE}/${app.slug}/`
+  return await deploy(app)
+}
+
+// ── launch ──
+
+async function waitForLive(url: string, capMs = 60_000): Promise<void> {
+  const start = Date.now()
+  while (Date.now() - start < capMs) {
+    try {
+      const res = await fetch(url)
+      if (res.status === 200) return
+    } catch {
+      // not up yet, keep polling
+    }
+    await sleep(2000)
+  }
+  console.log(`[launch] ${url} wasn't 200 after ${capMs}ms, posting anyway`)
+}
+
+// The reply goes on the wisher's own thread, not a post in a subreddit we run. Short, human, says it's an AI.
+function replyText(app: App, pagesUrl: string): string {
+  const others = Math.max(0, uniqueAuthors(app.askers) - 1)
+  return [
+    `Hey u/${app.wish.author}, you wished for this, so I built it: ${pagesUrl}`,
+    others ? `${others} other ${others === 1 ? 'person' : 'people'} on Reddit asked for the same thing, so hopefully it helps them too.` : '',
+    `It's free and open source (MIT): ${repoUrl(app)}. If something's off or you want a feature, open an issue there and I'll make the change.`,
+    `*I'm Genie, an AI agent. A human approved this reply before I posted it.*`,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+// Reddit's /api/comment answer, as Composio passes it through. VERIFY shape on the first real reply.
+type CommentResult = { json?: { errors?: unknown[]; data?: { things?: { data?: { id?: string; name?: string; permalink?: string } }[] } } }
+
+async function replyReal(app: App, pagesUrl: string, launchTitle: string) {
+  await waitForLive(pagesUrl)
+  const postId = app.wish.url ? postIdFromUrl(app.wish.url) : undefined
+  if (!postId) {
+    // the owner's own idea (texted in) has no Reddit thread to answer
+    console.log(`[composio] ${app.slug} has no Reddit thread to reply to, skipping the reply`)
+    return { pagesUrl, launchPostId: '', launchTitle, launchUrl: '' }
+  }
+  try {
+    const r = await tool<CommentResult>('REDDIT_POST_REDDIT_COMMENT', { thing_id: `t3_${postId}`, text: replyText(app, pagesUrl) })
+    const c = r?.json?.data?.things?.[0]?.data
+    const launchUrl = c?.permalink ? `https://www.reddit.com${c.permalink}` : app.wish.url
+    console.log(`[composio] replied to u/${app.wish.author} on ${app.wish.url}: ${launchUrl}`)
+    return { pagesUrl, launchPostId: c?.name ?? c?.id ?? `t3_${postId}`, launchTitle, launchUrl }
+  } catch (e) {
+    // locked/archived thread, RATELIMIT, or automod: the app is already live, so log it and carry on. Never retry in a loop.
+    console.log(`[composio] reply to ${app.wish.url} failed, app stays live: ${(e as Error).message}`)
+    return { pagesUrl, launchPostId: '', launchTitle, launchUrl: '' }
+  }
 }
 
 export async function launch(app: App): Promise<{ pagesUrl: string; launchPostId: string; launchTitle: string; launchUrl: string }> {
   const pagesUrl = await publish(app)
-  const launchTitle = `${uniqueAuthors(app.askers)} people wished for ${app.spec}, so I built it`
-  console.log(`[composio] r/GenieGrants post: "${launchTitle}" · u/${app.wish.author} · ${pagesUrl} (fake)`)
-  await fakeDelay()
-  const launchPostId = `fake_post_${app.slug.slice(0, 8)}`
-  return { pagesUrl, launchPostId, launchTitle, launchUrl: `https://www.reddit.com/r/GenieGrants/comments/${launchPostId}/` }
+  const sub = app.wish.url?.match(/reddit\.com\/r\/([^/]+)/i)?.[1]
+  const launchTitle = `Replied to u/${app.wish.author}${sub ? ` on r/${sub}` : ''}`
+  if (!composioEnabled()) {
+    console.log(`[composio] reply to u/${app.wish.author} on ${app.wish.url}: ${pagesUrl} (fake)`)
+    await fakeDelay()
+    return { pagesUrl, launchPostId: `fake_comment_${app.slug.slice(0, 8)}`, launchTitle, launchUrl: app.wish.url }
+  }
+  return replyReal(app, pagesUrl, launchTitle)
 }
 
 // ── fake reports ──
