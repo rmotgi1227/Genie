@@ -85,7 +85,7 @@ Share the `.env` through 1Password so both laptops are identical. The show runs 
 1. **Composio Reddit reply** (20 min, code: **C** `launch()`): real body for `launch()` in `steps/launch.ts`. `REDDIT_POST_REDDIT_COMMENT` on the wisher's own thread (`thing_id: t3_<id from app.wish.url>`): "Hey u/{wisher}, you wished for this, so I built it: {link}", how many others asked, the MIT repo, how to ask for changes, and that it's an AI and a human approved it. Return the comment id + permalink. *Pass:* the reply is visible logged out on a test thread.
 2. **Composio Reddit read** (20 min, code: **B** `lib/reddit.ts`): a helper Aryan's `findAskers()` can call: given a thread URL from Parallel, return `{author, title, created}` via Composio's Reddit get-post tool (check the exact slug in Composio's tool list). This is what makes the asker count real when Parallel's excerpts don't carry `u/name`. *Pass:* 5 Parallel URLs in → 5 real usernames out.
 3. **Vercel `deploy()`** (15 min, code: **D**): `steps/deploy.ts` per the Vercel section. Run it on the seeded bill splitter in `apps/`. *Pass:* `https://<slug>.vercel.app` opens logged out on your phone; a second deploy updates the same URL.
-4. **Photon on for real** (10 min): `npm run seed` with the real phone: build YES, post YES with screenshot, issue YES all route. This proves it on today's `.env`.
+4. **Photon on for real** (10 min): `npm run seed` with the real phone: build YES, post YES with screenshot, issue YES all route. This confirms it on the real `.env`.
 
 **Aryan**
 1. **Parallel** (20 min, code: **B** `steps/discover.ts`): `npx tsx spikes/parallel.ts`. *Pass:* one wish with 4+ unique askers, real links, a prior-art verdict. If authors are empty, call your teammate's Composio Reddit read helper inside `findAskers()`. If nothing scores, pass a known-popular wish as the arg.
@@ -116,7 +116,7 @@ Not green by 2:05 → cut (list below) and record with what's real.
 Leave `npm start` running, say YES to 1–2 more real wishes so the board opens on a real library of real repos. Meanwhile prep the second window: the wisher's thread (where the reply lands), one other asker's thread, the repo page (LICENSE visible), the issue form with the text ready.
 
 ### 2:20–2:50 · Record (30 min)
-Shot list, with two edits:
+Shot list in HACKDAY.md, with two edits:
 - Shot 10: show Genie's **reply on the wisher's own thread**, then flip to the **new repo**: point at `LICENSE · MIT`, the commit from Genie, then the live `<slug>.vercel.app` URL on the phone.
 - Shot 5: file the dark-mode issue **on that app's own repo**.
 Do one full take. If it's usable, stop. Second take only if the first broke.

@@ -80,7 +80,7 @@ Board full screen (press **F** to hide the footer). Phone in hand. Second window
 
 | # | Board | Phone | Reddit / GitHub | Say |
 |---|---|---|---|---|
-| 1 | Idle. "Watching Reddit · Watching GitHub · Always on". Library: 3 apps, v1, Live | — | — | "Genie reads Reddit for people wishing a tool existed, texts me, builds it, posts it, and looks after it. Last night it built these three." |
+| 1 | Idle. "Watching Reddit · Watching GitHub · Always on". Library: 3 apps, v1, Live | — | — | "Genie reads Reddit for people wishing a tool existed, texts me, builds it, posts it, and looks after it. Earlier today it built these three." |
 | 2 | Left: a sweep. Query chips, posts stream in, a wish is picked, asker cards land, counter climbs, "Nothing good exists" with the tools checked | — | Reddit: open one asker's real thread, read a line | "Four real people asked. Parallel checked nothing good exists." |
 | 3 | Approval bubble, "Waiting for you" | **Buzz. Hold it up. YES** | — | "It asks me before it does anything." |
 | 4 | Cline reasoning lines, then Playwright checks ticking | — | — | "Cline writes it. Playwright tests it." |
