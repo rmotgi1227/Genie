@@ -46,6 +46,10 @@
   .leave { opacity: 0 !important; transform: translateY(8px) !important; transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease); pointer-events: none; }
   @keyframes pulse { 0%, 100% { opacity: .1; transform: scale(.9); } 50% { opacity: .8; transform: scale(1.15); } }
   @keyframes shimmer { to { transform: translateX(100%); } }
+  .tag { font: 600 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .tag b { color: var(--text-2); font-weight: 600; letter-spacing: .06em; }
+  .tag .t { color: var(--accent); }
+  li.tag { border: 0 !important; background: none !important; padding: 4px 0 !important; }
 
   /* ── left: progress rail ── */
   #rail { list-style: none; margin: 28px 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); position: relative; flex: none; }
@@ -59,24 +63,41 @@
   .step.now .dot::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 1px solid var(--accent); animation: pulse 1.6s var(--ease) infinite; }
   .step .l { display: block; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
   .step.done .l { color: var(--text-2); } .step.now .l { color: var(--accent); }
-  .step .by { display: block; margin-top: 4px; font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); opacity: 0; transition: opacity var(--fast); }
-  .step.now .by { opacity: 1; color: var(--muted); }
+  .step .by { display: block; margin-top: 4px; font: 500 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--faint); opacity: 0; transition: opacity var(--fast); white-space: nowrap; }
+  .step.now .by, .step.done .by { opacity: 1; }
+  .step.now .by { color: var(--muted); } .step.done .by { color: var(--faint); }
 
   /* ── left: focus ── */
-  #focus { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; text-align: center; }
-  .wish { max-width: 960px; font-size: 48px; font-weight: 700; letter-spacing: -.035em; line-height: 1.1; }
+  #focus { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; }
+  .wish { max-width: 960px; font-size: 40px; font-weight: 700; letter-spacing: -.035em; line-height: 1.1; }
   .wish.quiet { color: var(--faint); font-weight: 500; font-size: 36px; }
-  .wish .who { display: block; margin-top: 18px; font: 500 17px/1 var(--mono); color: var(--muted); letter-spacing: .02em; }
+  .wish .who { display: block; margin-top: 14px; font: 500 16px/1 var(--mono); color: var(--muted); letter-spacing: .02em; }
   .live-line { display: inline-flex; align-items: center; gap: 14px; font-size: 19px; color: var(--muted); }
   .live-line i { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite; }
+  .live-line .t { font: 500 14px/1 var(--mono); color: var(--faint); letter-spacing: .08em; }
 
-  .people { display: flex; flex-direction: column; align-items: center; gap: 22px; }
-  .people .n { display: flex; align-items: baseline; gap: 18px; }
-  .people .n b { font: 600 150px/1 var(--mono); color: var(--accent); letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
-  .people .n span { font-size: 28px; color: var(--text-2); }
-  .avatars { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 800px; }
-  .av { position: relative; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; font: 600 16px/1 var(--mono); color: var(--text); letter-spacing: .04em; border: 1px solid var(--line-2); animation: pop var(--slow) var(--ease) both; animation-delay: calc(var(--i) * 150ms); transition: transform var(--fast) var(--ease), opacity var(--fast); }
-  @keyframes pop { from { opacity: 0; transform: scale(.5); } }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 1000px; }
+  .card { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); text-align: left; animation: rise var(--slow) var(--ease) both; transition: opacity var(--fast), transform var(--fast), border-color var(--fast); overflow: hidden; }
+  .card.hot { border-color: var(--accent); }
+  .card .h { font-size: 16px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card q { font-size: 16px; line-height: 1.35; color: var(--text); quotes: '“' '”'; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .m { display: flex; gap: 10px; align-items: center; font: 500 12px/1 var(--mono); color: var(--muted); letter-spacing: .02em; white-space: nowrap; overflow: hidden; }
+  .card .m b { color: var(--text-2); font-weight: 600; }
+  .card .m .u { margin-left: auto; color: var(--faint); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .card .m .av { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; font: 600 8px/1 var(--mono); color: var(--text); flex: none; }
+
+  .count { display: flex; align-items: baseline; gap: 16px; }
+  .count b { font: 600 96px/1 var(--mono); color: var(--accent); letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+  .count span { font-size: 26px; color: var(--text-2); }
+  .verdict { display: flex; flex-direction: column; gap: 8px; align-items: center; width: 1000px; animation: rise var(--slow) var(--ease) both; }
+  .verdict .v { font-size: 22px; font-weight: 600; letter-spacing: -.01em; display: flex; gap: 14px; align-items: baseline; }
+  .verdict .v.yes { color: var(--accent); }
+  .verdict .checked { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; }
+  .verdict .checked a { font: 500 13px/1 var(--mono); color: var(--muted); padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+  .verdict .checked a b { color: var(--text-2); font-weight: 600; }
+  .summary { display: flex; gap: 18px; align-items: center; font-size: 20px; color: var(--text-2); animation: rise var(--slow) var(--ease) both; }
+  .summary b { font: 600 32px/1 var(--mono); color: var(--accent); }
+  .summary .sep { color: var(--faint); }
 
   .phone { display: flex; flex-direction: column; gap: 10px; width: 700px; }
   .bubble { max-width: 88%; padding: 14px 20px; border-radius: 22px; font-size: 20px; line-height: 1.35; text-align: left; animation: rise var(--slow) var(--ease) both; transition: opacity var(--fast), transform var(--fast); }
@@ -84,31 +105,45 @@
   .bubble.me { align-self: flex-end; background: var(--accent); color: var(--accent-ink); font: 600 18px/1.3 var(--mono); text-transform: uppercase; letter-spacing: .06em; border-bottom-right-radius: 6px; }
   .typing { align-self: flex-end; color: var(--faint); font: 500 13px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 6px 10px; animation: pulse 1.4s infinite; }
 
-  .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; width: 600px; }
-  .check { position: relative; overflow: hidden; display: flex; align-items: center; gap: 18px; padding: 18px 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); font-size: 24px; text-align: left; animation: rise var(--fast) var(--ease) both; transition: opacity var(--fast), transform var(--fast); }
-  .check .box { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line-2); display: grid; place-items: center; flex: none; }
-  .check svg { width: 16px; height: 16px; } .check svg path { stroke: var(--accent); stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset var(--slow) var(--ease) 80ms; }
+  .feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; width: 760px; }
+  .feed li { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-size: 19px; text-align: left; animation: rise var(--fast) var(--ease) both; transition: opacity var(--fast), transform var(--fast); }
+  .feed li .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+  .feed li:last-child .dot { background: var(--accent); animation: pulse 1.2s infinite; }
+  .feed.done li:last-child .dot { animation: none; }
+  .feed li .f { margin-left: auto; font: 500 12px/1 var(--mono); color: var(--muted); padding: 5px 7px; border: 1px solid var(--line-2); border-radius: 4px; white-space: nowrap; }
+  .feed.small { width: 100%; gap: 6px; } .feed.small li { font-size: 16px; padding: 9px 14px; }
+  .feed.small li .f { font-size: 11px; }
+
+  .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; width: 600px; }
+  .check { position: relative; overflow: hidden; display: flex; align-items: center; gap: 16px; padding: 14px 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); font-size: 21px; text-align: left; animation: rise var(--fast) var(--ease) both; transition: opacity var(--fast), transform var(--fast); }
+  .check .box { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line-2); display: grid; place-items: center; flex: none; }
+  .check svg { width: 15px; height: 15px; } .check svg path { stroke: var(--accent); stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset var(--slow) var(--ease) 80ms; }
   .check.ok .box { border-color: var(--accent); } .check.ok svg path { stroke-dashoffset: 0; }
+  .check.bad .box { border-color: #c0392b; }
   .check.live .box { border-color: var(--accent); }
   .check.live::after, .working::after, .lib-row.upgrading::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(240,165,58,.08) 50%, transparent 80%); transform: translateX(-100%); animation: shimmer 1.4s var(--ease) infinite; pointer-events: none; }
+  .checks.small { width: 100%; gap: 6px; } .checks.small .check { font-size: 16px; padding: 9px 14px; } .checks.small .check .box { width: 20px; height: 20px; }
 
-  .app { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; }
+  .app { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
   .made { display: flex; flex-direction: column; gap: 6px; animation: rise var(--slow) var(--ease) both; }
   .made .k { font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
   .made .t { font-size: 30px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
-  .preview { position: relative; width: 600px; height: 560px; border-radius: 16px; overflow: hidden; background: var(--panel); border: 1px solid var(--line); transition: height var(--slow) var(--ease); flex: none; }
-  .preview.short { height: 400px; }
-  .preview iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; opacity: 0; transform: scale(.985); transition: opacity var(--slow) var(--ease), transform var(--slow) var(--ease); }
-  .preview iframe.on { opacity: 1; transform: none; }
+  .preview { position: relative; width: 600px; height: 520px; border-radius: 16px; overflow: hidden; background: #fff; border: 1px solid var(--line); flex: none; }
+  .preview.short { height: 380px; }
+  .preview iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; opacity: 0; transition: opacity var(--slow) var(--ease); }
+  .preview iframe.on { opacity: 1; }
   .vtag { position: absolute; top: 12px; right: 12px; z-index: 2; background: var(--bg); color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 6px 9px; font: 600 12px/1 var(--mono); letter-spacing: .1em; animation: rise var(--fast) var(--ease) both; }
-  .line { display: inline-flex; align-items: center; gap: 14px; font-size: 19px; color: var(--text-2); animation: rise var(--slow) var(--ease) both; }
-  .line i { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s infinite; }
-  .line .u { font: 500 15px/1 var(--mono); color: var(--muted); }
+  .post { display: flex; align-items: center; gap: 16px; width: 760px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--accent); background: var(--accent-soft); text-align: left; animation: rise var(--slow) var(--ease) both; }
+  .post .ico { width: 36px; height: 36px; border-radius: 50%; background: #ff4500; color: #fff; display: grid; place-items: center; font: 700 13px/1 var(--mono); flex: none; }
+  .post .b { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .post .h { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .post .m { font: 500 12px/1 var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .post .m b { color: var(--text-2); font-weight: 600; }
   .status { font-size: 32px; color: var(--muted); }
 
   /* ── right: library ── */
   #library { list-style: none; margin: 22px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; flex: none; }
-  .lib-row { position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; height: 50px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); animation: rise var(--fast) var(--ease) both; transition: opacity var(--fast), transform var(--fast), border-color var(--fast); }
+  .lib-row { position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; height: 48px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); animation: rise var(--fast) var(--ease) both; transition: opacity var(--fast), transform var(--fast), border-color var(--fast); }
   .lib-row .name { flex: 1; min-width: 0; font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.01em; }
   .lib-row .v { font: 600 12px/1 var(--mono); letter-spacing: .08em; color: var(--muted); padding: 5px 7px; border: 1px solid var(--line-2); border-radius: 5px; }
   .lib-row.bumped .v { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
@@ -118,31 +153,37 @@
   .lib-row.new .st i { background: var(--accent); }
 
   /* ── right: the request being worked on ── */
-  #issue { flex: 1; min-height: 0; margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+  #issue { flex: 1; min-height: 0; margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
   #watching { margin-top: auto; margin-bottom: auto; align-self: center; }
-  .req { display: flex; flex-direction: column; gap: 4px; animation: rise var(--slow) var(--ease) both; }
-  .req .k { font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); display: flex; gap: 10px; align-items: center; }
-  .req .k b { color: var(--text-2); font-weight: 600; letter-spacing: .06em; }
-  .req q { font-size: 28px; font-weight: 700; letter-spacing: -.03em; line-height: 1.15; quotes: '“' '”'; }
-  .req .on { font-size: 15px; color: var(--muted); }
+  .req { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--panel); animation: rise var(--slow) var(--ease) both; }
+  .req .k { display: flex; gap: 10px; align-items: center; }
+  .req .k .gh { width: 22px; height: 22px; border-radius: 50%; background: var(--text); color: var(--bg); display: grid; place-items: center; font: 700 10px/1 var(--mono); flex: none; }
+  .req q { font-size: 24px; font-weight: 700; letter-spacing: -.03em; line-height: 1.15; quotes: '“' '”'; text-align: left; }
+  .req .on { font-size: 14px; color: var(--muted); display: flex; gap: 8px; }
   .req .on b { color: var(--text-2); font-weight: 600; }
+  .req .on .u { margin-left: auto; font: 500 12px/1.4 var(--mono); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
   .phone.small { width: 100%; gap: 8px; }
   .phone.small .bubble { font-size: 17px; padding: 11px 16px; max-width: 92%; }
   .phone.small .bubble.me { font-size: 15px; }
   .said { font: 600 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 10px; animation: rise var(--fast) var(--ease) both; }
   .said b { color: var(--accent-ink); background: var(--accent); padding: 5px 7px; border-radius: 4px; letter-spacing: .08em; }
-  .working { position: relative; overflow: hidden; display: flex; align-items: center; gap: 16px; padding: 16px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); font-size: 20px; animation: rise var(--fast) var(--ease) both; }
-  .working .box { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--accent); flex: none; }
+  .said .t { margin-left: auto; color: var(--faint); }
+  .working { position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); font-size: 18px; animation: rise var(--fast) var(--ease) both; }
+  .working .box { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--accent); flex: none; }
   .working .by { margin-left: auto; font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; animation: rise var(--slow) var(--ease) both; }
-  .shot { position: relative; height: 330px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--panel); }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; animation: rise var(--slow) var(--ease) both; }
+  .shot { position: relative; height: 290px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: var(--panel); }
   .shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
-  .shot .tag { position: absolute; left: 12px; bottom: 12px; font: 600 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; padding: 6px 8px; border-radius: 5px; background: rgba(13,12,10,.85); color: var(--text-2); border: 1px solid var(--line-2); }
-  .shot.after { border-color: var(--accent); } .shot.after .tag { color: var(--accent); border-color: var(--accent); }
-  .result { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 12px; border: 1px solid var(--accent); background: var(--accent-soft); font-size: 19px; animation: settle var(--slow) var(--ease) both; }
-  .result .v { font: 600 14px/1 var(--mono); letter-spacing: .1em; color: var(--accent-ink); background: var(--accent); padding: 6px 8px; border-radius: 5px; }
-  .result .r { margin-left: auto; font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-  .result.declined { border-color: var(--line-2); background: var(--panel); color: var(--text-2); }
+  .shot .lab { position: absolute; left: 10px; bottom: 10px; font: 600 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; padding: 6px 8px; border-radius: 5px; background: rgba(13,12,10,.85); color: var(--text-2); border: 1px solid var(--line-2); }
+  .shot.after { border-color: var(--accent); } .shot.after .lab { color: var(--accent); border-color: var(--accent); }
+  .reply { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--accent); background: var(--accent-soft); animation: settle var(--slow) var(--ease) both; }
+  .reply.declined { border-color: var(--line-2); background: var(--panel); }
+  .reply .k { display: flex; gap: 10px; align-items: center; }
+  .reply .k .v { font: 600 12px/1 var(--mono); letter-spacing: .1em; color: var(--accent-ink); background: var(--accent); padding: 5px 7px; border-radius: 4px; }
+  .reply .k .r { margin-left: auto; white-space: nowrap; }
+  .reply .k { flex-wrap: wrap; row-gap: 6px; }
+  .reply .txt { font-size: 17px; color: var(--text); line-height: 1.35; text-align: left; }
+  .reply .txt .u { color: var(--muted); font: 500 13px/1 var(--mono); }
   @keyframes settle { 0% { opacity: 0; transform: translateY(-8px); } 55% { transform: translateY(4px); } 100% { opacity: 1; transform: none; } }
 
   /* ── footer ── */
@@ -161,7 +202,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
-    .preview iframe { opacity: 1; transform: none; }
+    .preview iframe { opacity: 1; }
   }
 </style>
 </head>
@@ -179,11 +220,16 @@
       <ol id="rail"><div class="fill"></div></ol>
       <div id="focus">
         <div id="wish" class="wish quiet">Listening for wishes…</div>
-        <div id="searching" class="live-line hide"><i></i><span></span></div>
-        <div id="people" class="people hide"><div class="n"><b data-v="0">0</b><span>people asked for this</span></div><div class="avatars" id="avatars"></div></div>
+        <div id="searching" class="live-line hide"><i></i><span></span><span class="t"></span></div>
+        <div id="hits" class="cards hide"></div>
+        <div id="count" class="count hide"><b data-v="0">0</b><span>people asked for this</span></div>
+        <div id="askers" class="cards hide"></div>
+        <div id="verdict" class="verdict hide"></div>
+        <div id="summary" class="summary hide"></div>
         <div id="phone" class="phone hide"></div>
+        <ul id="feed" class="feed hide"></ul>
         <ul id="checks" class="checks hide"></ul>
-        <div id="app" class="app hide"><div class="made" id="made"></div><div class="preview" id="preview"></div><div id="liveLine"></div></div>
+        <div id="app" class="app hide"><div class="made" id="made"></div><div class="preview" id="preview"></div><div id="postLine"></div></div>
         <div id="status" class="status hide"></div>
       </div>
     </section>
@@ -215,11 +261,28 @@ const AV_COLORS = ['#3d3729', '#2d3a39', '#3b2f35', '#2f3a2c', '#3a3330', '#2c33
 const hash = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
 const initials = (name) => { const p = name.replace(/^fake_/, '').split(/[_\-.]+/).filter(Boolean); return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? p[0]?.[1] ?? '')).toUpperCase() }
 const mmss = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
+const secs = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : mmss(ms) }
 const startOf = (a) => a.stageAt?.found ?? a.stageAt?.validating
 const CHECK = '<svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 4.5"/></svg>'
+const CHECK_LABELS = ['Loads with no errors', 'Core feature works', 'Footer and viewport in place', 'Screenshot taken']
 const name = (a) => a.spec ?? a.wish?.text ?? a.slug
 const OPEN = ['triaged', 'awaiting_approval', 'fixing', 'testing', 'shipping']
+const short = (u) => String(u ?? '').replace(/^https?:\/\/(www\.|old\.)?/, '').replace(/\/$/, '')
 let NOW = () => Date.now() // the replay moves this
+// "3d ago" from an ISO string or ms
+function ago(v) {
+  if (!v) return ''
+  const t = typeof v === 'number' ? v : Date.parse(v)
+  if (!t) return ''
+  const s = Math.max(0, (NOW() - t) / 1000)
+  if (s < 50) return 'just now'
+  if (s < 3600) return `${Math.round(s / 60)}m ago`
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`
+  return `${Math.round(s / 86400)}d ago`
+}
+// how long a step took, or how long it's been running
+const dur = (span) => span?.startedAt ? secs((span.endedAt ?? NOW()) - span.startedAt) : ''
+const sub = (url) => (String(url ?? '').match(/reddit\.com\/r\/([^/]+)/i) || [])[1]
 
 // Scale the 1920×1080 stage to the window.
 function fit() { const s = Math.min(innerWidth / 1920, innerHeight / 1080); $('#stage').style.transform = `translate(-50%, -50%) scale(${s})` }
@@ -249,6 +312,7 @@ function sync(parent, items) {
       while (want && want.classList.contains('leave')) want = want.nextElementSibling
       if (want !== rec.el) prev ? prev.after(rec.el) : parent.prepend(rec.el)
     }
+    if (it.children) sync(rec.el, it.children)
     prev = rec.el
   })
 }
@@ -277,16 +341,33 @@ function request(s) {
   }
   return best
 }
+const approvalOf = (app, kind, issueId) => (app.approvals ?? []).filter((x) => x.kind === kind && (!issueId || x.issueId === issueId)).at(-1)
+const span = (x) => x?.askedAt ? { startedAt: x.askedAt, endedAt: x.repliedAt } : null
+const head = (html) => ({ key: 'h', tag: 'li', cls: 'tag', html })
 
 // ── rail ──
-$('#rail').insertAdjacentHTML('beforeend', STEPS.map((st, i) => `<li class="step" id="step${i}"><span class="dot">${CHECK}</span><span class="l">${st.label}</span><span class="by">via ${st.by}</span></li>`).join(''))
-function renderRail(app) {
+$('#rail').insertAdjacentHTML('beforeend', STEPS.map((st, i) => `<li class="step" id="step${i}"><span class="dot">${CHECK}</span><span class="l">${st.label}</span><span class="by"></span></li>`).join(''))
+function stepTimes(s, app) {
+  if (!app) return []
+  return [
+    [['Parallel', dur(app.found ?? s.discovery)]],
+    [['Parallel', dur(app.validation)]],
+    [['Photon', dur(span(approvalOf(app, 'build')))]],
+    [['Cline', dur(app.build)], ['Playwright', dur(app.test)]],
+    [['Photon', dur(span(approvalOf(app, 'post')))]],
+    [['Composio', dur(app.launch)]],
+  ]
+}
+function renderRail(s, app) {
   const at = app ? AT[app.stage] ?? 0 : -1
   const n = app ? uniq(app.askers) : 0
+  const times = stepTimes(s, app)
   STEPS.forEach((st, i) => {
     const el = $(`#step${i}`)
     el.classList.toggle('done', i < at); el.classList.toggle('now', i === at)
     setText(el.querySelector('.l'), i === 1 && n ? `${n} people asked` : st.label)
+    const parts = (times[i] ?? []).filter(([, d]) => d).map(([by, d]) => `${by} ${d}`)
+    setText(el.querySelector('.by'), i <= at ? (parts.length ? parts.join(' · ') : `via ${st.by}`) : '')
   })
   $('#rail .fill').style.width = at <= 0 ? '0' : `calc(${Math.min(at, 5)} * 100% / 6)`
 }
@@ -300,7 +381,8 @@ function tickClock() {
   const html = end ? `<b>${mmss(end - startOf(a))}</b><span>wish → live app</span>` : `<b class="live">${mmss(NOW() - startOf(a))}</b><span>since the wish</span>`
   setHTML(el, html)
 }
-setInterval(tickClock, 250)
+// Running timers ("Cline 0:12") refresh twice a second without a new state.
+setInterval(() => { tickClock(); if (lastRender && !replaying) renderLive(lastRender) }, 500)
 
 // ── left ──
 let previewKey = ''
@@ -315,6 +397,15 @@ function renderPreview(app) {
   let tag = box.querySelector('.vtag'); if (!tag) { tag = document.createElement('div'); tag.className = 'vtag'; box.append(tag) }
   tag.textContent = `v${app.version}`; tag.style.animation = 'none'; void tag.offsetWidth; tag.style.animation = ''
 }
+const hitCard = (h, hot) => ({ key: h.url, tag: 'a', cls: `card ${hot ? 'hot' : ''}`, attrs: { href: h.url, target: '_blank', rel: 'noopener' }, html: `<div class="h">${esc(h.title)}</div><div class="m"><b>r/${esc(h.subreddit)}</b>${h.author ? `<span>u/${esc(h.author)}</span>` : ''}<span>${ago(h.postedAt)}</span><span class="u">${esc(short(h.url))}</span></div>` })
+const askerCard = (k) => ({ key: k.author.toLowerCase(), tag: 'a', cls: 'card', attrs: { href: k.url, target: '_blank', rel: 'noopener' }, html: `<div class="m"><span class="av" style="background:${AV_COLORS[hash(k.author) % AV_COLORS.length]}">${esc(initials(k.author))}</span><b>u/${esc(k.author)}</b><span>${esc(k.source && k.source !== 'reddit' ? k.source : `r/${sub(k.url) ?? 'reddit'}`)}</span><span>${ago(k.postedAt)}</span><span class="u">${esc(short(k.url))}</span></div><q>${esc(k.quote)}</q>` })
+const feedItems = (feed, max) => feed.slice(-max).map((l) => ({ key: `${l.t}${l.text}`, tag: 'li', html: `<span class="dot"></span><span>${esc(l.text)}</span>${l.file ? `<span class="f">${esc(l.file)}</span>` : ''}` }))
+const checkItems = (checks, live) => {
+  const items = checks.map((c) => ({ key: c.label, tag: 'li', cls: `check ${c.ok ? 'ok' : 'bad'}`, html: `<span class="box">${CHECK}</span>${esc(c.label)}` }))
+  if (live) items.push({ key: 'live', tag: 'li', cls: 'check live', html: `<span class="box"></span>${esc(live)}` })
+  return items
+}
+
 function renderLeft(s, app) {
   const stage = app?.stage ?? 'none'
   const n = app ? uniq(app.askers) : 0
@@ -322,63 +413,91 @@ function renderLeft(s, app) {
   tickClock()
   setText($('#leftN'), app && s.candidates.length > 1 ? `${s.candidates.filter((a) => a.stage !== 'exists').length} candidates` : '')
 
-  // the wish itself, big, until people show up
-  const wishStage = stage === 'none' || ((stage === 'found' || stage === 'validating') && n === 0)
-  show($('#wish'), wishStage)
-  if (wishStage) {
-    const html = app ? `${esc(app.wish.text)}${app.wish.author ? `<span class="who">u/${esc(app.wish.author)}</span>` : ''}` : 'Listening for wishes…'
+  // 1. the search: the wish, big, with the posts Parallel found
+  const d = s.discovery
+  const searching = stage === 'none' || ((stage === 'found' || stage === 'validating') && n === 0)
+  show($('#wish'), searching)
+  if (searching) {
+    const html = app ? `${esc(app.wish.text)}${app.wish.author ? `<span class="who">u/${esc(app.wish.author)} · r/${esc(sub(app.wish.url) ?? 'reddit')}</span>` : ''}` : (d && !d.endedAt ? 'Reading Reddit…' : 'Listening for wishes…')
     if ($('#wish').innerHTML !== html) { $('#wish').innerHTML = html; $('#wish').classList.add('in') }
     $('#wish').classList.toggle('quiet', !app)
   }
-  show($('#searching'), wishStage && !!app)
-  if (wishStage && app) setText($('#searching span'), stage === 'found' ? 'Reading it' : 'Looking for other people who asked')
+  const hits = searching && d ? d.hits ?? [] : []
+  show($('#searching'), searching && !!(app || d))
+  if (searching && (app || d)) {
+    const txt = !app ? (d?.endedAt ? `Parallel read ${hits.length} posts, picking a wish` : `Parallel is searching Reddit`) : stage === 'found' ? `Parallel found it in ${hits.length} posts` : `Parallel is looking for other people who asked`
+    setText($('#searching span'), txt)
+    setText($('#searching .t'), stage === 'validating' && app?.validation ? dur(app.validation) : dur(d))
+  }
+  show($('#hits'), searching && hits.length > 0)
+  if (searching && hits.length) sync($('#hits'), hits.slice(0, 8).map((h) => hitCard(h, app && h.url === app.wish.url)))
 
-  // how many people, as faces
-  const peopleStage = n > 0 && ['validating', 'awaiting_approval', 'rejected'].includes(stage)
-  show($('#people'), peopleStage)
+  // 2. validation: askers as they're found, the counter, then the prior-art verdict
+  const peopleStage = n > 0 && ['validating', 'exists'].includes(stage)
+  show($('#count'), peopleStage)
+  show($('#askers'), peopleStage)
   if (peopleStage) {
-    sync($('#avatars'), app.askers.map((k) => ({ key: k.author.toLowerCase(), tag: 'a', cls: 'av', attrs: { href: k.url, target: '_blank', rel: 'noopener', title: `u/${k.author}${k.source && k.source !== 'reddit' ? ` · ${k.source}` : ''}`, style: `background:${AV_COLORS[hash(k.author) % AV_COLORS.length]}` }, html: esc(initials(k.author)) })))
-    tween($('#people .n b'), n, Math.max(500, n * 150))
+    tween($('#count b'), n, Math.max(400, n * 120))
+    const seen = new Set(); const uniqAskers = app.askers.filter((k) => { const key = k.author.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
+    sync($('#askers'), uniqAskers.slice(0, 8).map(askerCard))
+  }
+  const v = app?.validation
+  const verdictStage = peopleStage && !!v?.endedAt
+  show($('#verdict'), verdictStage)
+  if (verdictStage) {
+    const exists = v.priorArt === 'strong_existing_tool'
+    sync($('#verdict'), [
+      { key: 'v', cls: `v ${exists ? '' : 'yes'}`, html: `<span>${esc(v.verdict ?? (exists ? 'Already exists' : 'Nothing good exists'))}</span><span class="tag">Parallel · ${dur(v)}</span>` },
+      ...(v.checked?.length ? [{ key: 'c', cls: 'checked', html: `<span class="tag">Checked</span>` + v.checked.map((c) => `<a href="${esc(c.url)}" target="_blank" rel="noopener"><b>${esc(c.name)}</b> · ${esc(c.verdict)}</a>`).join('') }] : []),
+    ])
   }
 
-  // the text to the owner, and the reply landing
+  // 3. approval: one line of summary, then the texts
   const kind = stage === 'awaiting_approval' ? 'build' : stage === 'awaiting_post_approval' ? 'post' : null
-  const approvals = kind ? (app.approvals ?? []).filter((x) => x.kind === kind) : []
-  show($('#phone'), approvals.length > 0)
-  if (approvals.length) {
-    const x = approvals.at(-1), i = approvals.length - 1
+  const x = kind ? approvalOf(app, kind) : null
+  const sumStage = stage === 'awaiting_approval' || stage === 'rejected'
+  show($('#summary'), sumStage)
+  if (sumStage) setHTML($('#summary'), `<b>${n}</b><span>people asked</span>${v?.verdict ? `<span class="sep">·</span><span>${esc(v.verdict)}</span>` : ''}`)
+  show($('#phone'), !!x)
+  if (x) {
+    const i = (app.approvals ?? []).indexOf(x)
     const items = [{ key: `q${i}`, cls: 'bubble them', html: esc(x.text) }]
-    items.push(x.reply ? { key: `r${i}`, cls: 'bubble me', html: esc(x.reply) } : { key: `t${i}`, cls: 'typing', html: 'Waiting for you' })
+    items.push(x.reply ? { key: `r${i}`, cls: 'bubble me', html: esc(x.reply) } : { key: `t${i}`, cls: 'typing', html: `Waiting for you · ${dur(span(x))}` })
     sync($('#phone'), items)
   }
 
-  // build checklist
+  // 4. Cline writing it, then Playwright checking it
   const isBuilding = stage === 'building' || stage === 'testing' || stage === 'failed'
-  show($('#checks'), isBuilding)
-  if (isBuilding) {
-    const done = app.checks ?? []
-    const items = done.map((c) => ({ key: c.label, tag: 'li', cls: `check ${c.ok ? 'ok' : ''}`, html: `<span class="box">${CHECK}</span>${esc(c.label)}` }))
-    const next = done.length === 0 ? 'Writing the app' : stage === 'testing' ? 'Testing it' : null
-    if (next && stage !== 'failed') items.push({ key: 'live', tag: 'li', cls: 'check live', html: `<span class="box"></span>${next}` })
-    sync($('#checks'), items)
+  const feed = app?.build?.feed ?? []
+  show($('#feed'), isBuilding && feed.length > 0)
+  if (isBuilding && feed.length) {
+    $('#feed').classList.toggle('done', stage !== 'building')
+    sync($('#feed'), [head(`<b>Cline</b> is writing the app <span class="t">${dur(app.build)}</span>`), ...feedItems(feed, stage === 'building' ? 6 : 2)])
+  }
+  const testing = stage === 'testing' || stage === 'failed'
+  show($('#checks'), testing)
+  if (testing) {
+    const done = (app.checks ?? []).filter((c) => c.label !== 'Writing the app')
+    const next = stage === 'testing' && !app.test?.endedAt ? CHECK_LABELS[done.length] : null
+    sync($('#checks'), [head(`<b>Playwright</b> is testing it <span class="t">${dur(app.test)}</span>`), ...checkItems(done, next)])
   }
 
-  // the app, live
+  // 5. the app, then the post
   const appStage = app?.url && (stage === 'awaiting_post_approval' || LIVE(app) || stage === 'shelved')
   show($('#app'), !!appStage)
   if (appStage) {
     const others = Math.max(0, n - 1)
-    const made = `<div class="k">Genie built this${app.wish.author ? ` for u/${esc(app.wish.author)}${others ? ` and ${others} other${others > 1 ? 's' : ''}` : ''}` : ''}${LIVE(app) ? '' : ' · not posted yet'}</div><div class="t">${esc(name(app))}</div>`
+    const made = `<div class="k">Genie built this${app.wish.author ? ` for u/${esc(app.wish.author)}${others ? ` and ${others} other${others > 1 ? 's' : ''}` : ''}` : ''}${LIVE(app) ? '' : ' · not posted yet'}${app.build?.endedAt ? ` · Cline ${dur(app.build)}` : ''}</div><div class="t">${esc(name(app))}</div>`
     setHTML($('#made'), made)
     $('#preview').classList.toggle('short', stage === 'awaiting_post_approval')
     renderPreview(app)
     const line = LIVE(app)
-      ? `<div class="line"><i></i><span>Live on r/GenieGrants</span>${app.launchUrl ? `<span class="u">${esc(app.launchUrl.replace(/^https?:\/\/(www\.)?/, ''))}</span>` : ''}</div>`
-      : stage === 'shelved' ? `<div class="line"><span>Kept private</span></div>` : ''
-    setHTML($('#liveLine'), line)
-  } else { $('#preview').innerHTML = ''; previewKey = ''; $('#liveLine').innerHTML = ''; $('#made').innerHTML = '' }
+      ? `<a class="post" href="${esc(app.launchUrl ?? '#')}" target="_blank" rel="noopener"><span class="ico">r/</span><span class="b"><span class="h">${esc(app.launchTitle ?? 'Posted')}</span><span class="m"><b>r/GenieGrants</b> · ${app.wish.author ? `tagged u/${esc(app.wish.author)} · ` : ''}${esc(short(app.launchUrl))} · Composio ${dur(app.launch)}</span></span></a>`
+      : stage === 'shelved' ? `<div class="live-line"><span>Kept private</span></div>` : ''
+    setHTML($('#postLine'), line)
+  } else { $('#preview').innerHTML = ''; previewKey = ''; $('#postLine').innerHTML = ''; $('#made').innerHTML = '' }
 
-  const msg = { rejected: 'Skipped', failed: "Couldn't build this one" }[stage]
+  const msg = { rejected: 'Skipped', failed: "Couldn't build this one", exists: `Already exists${app?.existingTool ? `: ${app.existingTool.name}` : ''}` }[stage]
   show($('#status'), !!msg); if (msg) setText($('#status'), msg)
 }
 
@@ -386,7 +505,6 @@ function renderLeft(s, app) {
 function renderRight(s) {
   const live = s.apps.filter(LIVE).sort((a, b) => (a.stageAt?.launched ?? 0) - (b.stageAt?.launched ?? 0))
   setText($('#rightN'), live.length ? `looking after ${live.length} app${live.length > 1 ? 's' : ''}` : '')
-  const req = request(s)
   const recent = NOW() - 10 * 60_000
   sync($('#library'), live.map((a) => {
     const open = (a.issues ?? []).some((i) => OPEN.includes(i.status))
@@ -396,40 +514,43 @@ function renderRight(s) {
     return { key: a.slug, tag: 'li', cls, html: `<span class="name">${esc(name(a))}</span><span class="v">v${a.version}</span><span class="st"><i></i>${st}</span>` }
   }))
 
+  const req = request(s)
   show($('#watching'), !req)
   const box = $('#issue')
   if (!req) { sync(box, []); return }
   const { app, issue } = req
   const st = issue.status
-  const where = issue.source === 'github' ? `GitHub${issue.url ? ` #${issue.url.split('/').pop()}` : ''}` : issue.source === 'reddit' ? 'r/GenieGrants' : 'iMessage'
-  const who = issue.author ? ` · ${issue.source === 'reddit' ? 'u/' : '@'}${esc(issue.author.replace(/^[@]|^u\//, ''))}` : ''
-  const verb = issue.kind === 'bug' ? 'Fixing' : 'Adding'
-  const items = [{ key: issue.id, cls: 'req', html: `<div class="k"><b>${issue.kind === 'bug' ? 'Bug report' : 'Request'}</b> ${esc(where)}${who}</div><q>${esc(issue.text)}</q><div class="on">on <b>${esc(name(app))}</b></div>` }]
+  const num = issue.url?.match(/issues\/(\d+)/)?.[1]
+  const where = issue.source === 'github' ? 'GitHub' : issue.source === 'reddit' ? 'r/GenieGrants' : 'iMessage'
+  const who = issue.author ? `${issue.source === 'reddit' ? 'u/' : '@'}${esc(issue.author.replace(/^[@]|^u\//, ''))}` : ''
+  const verb = issue.kind === 'bug' ? 'fixing' : 'adding'
+  const items = [{ key: issue.id, tag: 'a', cls: 'req', attrs: { href: issue.url ?? '#', target: '_blank', rel: 'noopener' }, html: `<div class="k"><span class="gh">${issue.source === 'github' ? 'gh' : 'r/'}</span><span class="tag"><b>${issue.kind === 'bug' ? 'Bug report' : 'Feature request'}</b> · ${esc(where)}${num ? ` #${num}` : ''}${who ? ` · ${who}` : ''} · ${ago(issue.reportedAt)}</span></div><q>${esc(issue.text)}</q><div class="on">on <b>${esc(name(app))}</b><span class="u">${esc(short(issue.url))}</span></div>` }]
 
-  const ap = (app.approvals ?? []).filter((x) => x.kind === 'issue' && x.issueId === issue.id)
-  const x = ap.at(-1)
+  const x = approvalOf(app, 'issue', issue.id)
   if (st === 'awaiting_approval' && x) {
-    const ph = [{ key: `q${ap.length}`, cls: 'bubble them', html: esc(x.text) }]
-    ph.push(x.reply ? { key: `r${ap.length}`, cls: 'bubble me', html: esc(x.reply) } : { key: `t${ap.length}`, cls: 'typing', html: 'Waiting for you' })
+    const ph = [{ key: `q`, cls: 'bubble them', html: esc(x.text) }]
+    ph.push(x.reply ? { key: `r`, cls: 'bubble me', html: esc(x.reply) } : { key: `t`, cls: 'typing', html: `Waiting for you · ${dur(span(x))}` })
     items.push({ key: `phone-${issue.id}`, cls: 'phone small', html: '', children: ph })
   } else if (x?.reply) {
-    items.push({ key: `said-${issue.id}`, cls: 'said', html: `You said <b>${esc(x.reply)}</b>` })
+    items.push({ key: `said-${issue.id}`, cls: 'said', html: `You said <b>${esc(x.reply)}</b><span class="t">Photon · ${dur(span(x))}</span>` })
   }
-  if (st === 'fixing' || st === 'testing' || st === 'shipping') {
-    const [what, by] = st === 'fixing' ? [`${verb} ${esc(issue.title)}`, 'Cline'] : st === 'testing' ? ['Testing it again', 'Playwright'] : [`Shipping v${app.version}`, 'GitHub']
-    items.push({ key: `work-${issue.id}`, cls: 'working', html: `<span class="box"></span><span>${what}</span><span class="by">via ${by}</span>` })
+  const feed = issue.change?.feed ?? []
+  if ((st === 'fixing' || st === 'testing') && feed.length) {
+    items.push({ key: `feed-${issue.id}`, tag: 'ul', cls: `feed small ${st === 'fixing' ? '' : 'done'}`, html: '', children: [head(`<b>Cline</b> ${verb} ${esc(issue.title)} <span class="t">${dur(issue.change)}</span>`), ...feedItems(feed, st === 'fixing' ? 4 : 1)] })
   }
-  if (st === 'fixed') {
-    if (issue.before && issue.after) items.push({ key: `shots-${issue.id}`, cls: 'shots', html: `<div class="shot"><img src="${esc(issue.before)}" alt=""><span class="tag">Before · v${issue.version - 1}</span></div><div class="shot after"><img src="${esc(issue.after)}" alt=""><span class="tag">After · v${issue.version}</span></div>` })
-    const secs = issue.fixedAt && issue.repliedAt ? Math.round((issue.fixedAt - issue.repliedAt) / 1000) : null
-    items.push({ key: `done-${issue.id}`, cls: 'result', html: `<span class="v">v${issue.version}</span><span>${issue.kind === 'bug' ? 'Fixed' : 'Added'} ${esc(issue.title)}${secs ? ` in ${secs}s` : ''}</span><span class="r">Replied ✅ on ${esc(where.split(' ')[0])}</span>` })
+  if (st === 'testing') {
+    const done = issue.test?.checks ?? []
+    const next = !issue.test?.endedAt ? CHECK_LABELS[done.length] : null
+    items.push({ key: `checks-${issue.id}`, tag: 'ul', cls: 'checks small', html: '', children: [head(`<b>Playwright</b> is testing it again <span class="t">${dur(issue.test)}</span>`), ...checkItems(done, next)] })
   }
-  if (st === 'declined') items.push({ key: `done-${issue.id}`, cls: 'result declined', html: `<span>Not planned</span><span class="r">Replied on ${esc(where.split(' ')[0])}, closed</span>` })
+  if (st === 'shipping') items.push({ key: `work-${issue.id}`, cls: 'working', html: `<span class="box"></span><span>Shipping v${app.version}</span><span class="by">GitHub · ${dur(issue.publish)}</span>` })
+  if (st === 'fixed' && issue.before && issue.after) items.push({ key: `shots-${issue.id}`, cls: 'shots', html: `<div class="shot"><img src="${esc(issue.before)}" alt=""><span class="lab">Before · v${issue.version - 1}</span></div><div class="shot after"><img src="${esc(issue.after)}" alt=""><span class="lab">After · v${issue.version}</span></div>` })
+  if (st === 'fixed' || st === 'declined') {
+    const r = issue.reply
+    const times = st === 'fixed' ? [['Cline', dur(issue.change)], ['Playwright', dur(issue.test)], ['GitHub', dur(issue.publish)]].filter(([, d]) => d).map(([b, d]) => `${b} ${d}`).join(' · ') : ''
+    items.push({ key: `reply-${issue.id}`, tag: 'a', cls: `reply ${st}`, attrs: { href: r?.url ?? issue.url ?? '#', target: '_blank', rel: 'noopener' }, html: `<div class="k">${st === 'fixed' ? `<span class="v">v${issue.version}</span>` : ''}<span class="tag"><b>Genie replied</b> on ${esc(where)}${issue.closedAt ? ' · issue closed' : ''}</span></div><div class="txt">${esc(r?.text ?? '')}</div><div class="k"><span class="tag"><span class="u">${esc(short(r?.url ?? issue.url))}</span></span><span class="tag r">${times}</span></div>` })
+  }
   sync(box, items)
-  // nested bubbles for the phone
-  const ph = box.querySelector(`.phone.small`)
-  const spec = items.find((i) => i.children)
-  if (ph && spec) sync(ph, spec.children)
 }
 
 // ── footer ──
@@ -460,10 +581,20 @@ function renderQR(s) {
   new QRCode($('#qr .code'), { text: url, width: 62, height: 62, colorDark: '#0d0c0a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M })
 }
 
+let lastRender = null
 function render(s) {
+  lastRender = s
   const app = building(s)
   show($('#sample'), !!s.sample)
-  renderRail(app); renderLeft(s, app); renderRight(s); renderFooter(s, app); renderQR(s)
+  renderRail(s, app); renderLeft(s, app); renderRight(s); renderFooter(s, app); renderQR(s)
+}
+// Re-renders only the parts with running timers.
+function renderLive(s) {
+  const app = building(s)
+  renderRail(s, app)
+  if (app && ['found', 'validating', 'awaiting_approval', 'building', 'testing', 'awaiting_post_approval'].includes(app.stage)) renderLeft(s, app)
+  const r = request(s)
+  if (r && OPEN.includes(r.issue.status)) renderRight(s)
 }
 
 // ── polling, replay, presenter keys ──
@@ -478,13 +609,16 @@ async function tick() {
 tick()
 
 // What the state looked like at time t. Seeded apps were "built yesterday" and only their issues move.
+const upto = (span, t) => span?.startedAt && span.startedAt <= t ? { ...span, endedAt: span.endedAt && span.endedAt <= t ? span.endedAt : undefined } : undefined
 function rewind(s, t) {
   const ev = (s.events ?? []).filter((e) => e.t <= t)
   const issuesAt = (a) => (a.issues ?? []).filter((i) => (i.reportedAt ?? 0) <= t).map((i) => {
     if (i.status === 'ignored') return i
     if ((i.resolvedAt ?? Infinity) <= t) return i
-    const status = (i.repliedAt ?? Infinity) <= t ? 'fixing' : (i.askedAt ?? Infinity) <= t ? 'awaiting_approval' : 'triaged'
-    return { ...i, status, fixedAt: undefined, resolvedAt: undefined, version: undefined, after: undefined }
+    const change = upto(i.change, t), test = upto(i.test, t), publish = upto(i.publish, t)
+    const status = (i.fixedAt ?? Infinity) <= t ? 'fixed' : publish ? 'shipping' : test ? 'testing' : (i.repliedAt ?? Infinity) <= t ? 'fixing' : (i.askedAt ?? Infinity) <= t ? 'awaiting_approval' : 'triaged'
+    const fixed = status === 'fixed'
+    return { ...i, status, change: change && { ...change, feed: (change.feed ?? []).filter((l) => l.t <= t) }, test: test && { ...test, checks: (test.checks ?? []).filter((c) => (c.at ?? 0) <= t) }, publish, reply: i.reply && i.reply.at <= t ? i.reply : undefined, closedAt: i.closedAt && i.closedAt <= t ? i.closedAt : undefined, fixedAt: fixed ? i.fixedAt : undefined, resolvedAt: undefined, version: fixed ? i.version : undefined, after: fixed ? i.after : undefined }
   })
   const approvalsAt = (a) => (a.approvals ?? []).filter((x) => x.askedAt <= t).map((x) => (x.repliedAt && x.repliedAt <= t ? x : { ...x, reply: undefined, repliedAt: undefined }))
   const map = (a) => {
@@ -499,51 +633,88 @@ function rewind(s, t) {
     const stageAt = Object.fromEntries(Object.entries(a.stageAt ?? {}).filter(([, v]) => v <= t))
     const isLive = stage === 'launched' || stage === 'maintaining'
     const version = isLive ? 1 + issues.filter((i) => i.status === 'fixed').length : AT[stage] >= 3 ? 1 : 0
-    const checks = stage === 'building' ? [] : stage === 'testing' ? (a.checks ?? []).slice(0, 1) : a.checks
-    return { ...a, stage, stageAt, approvals: approvalsAt(a), issues, version, checks, askers: stage === 'found' ? [] : a.askers, launchUrl: isLive ? a.launchUrl : undefined, pagesUrl: isLive ? a.pagesUrl : undefined }
+    const validation = upto(a.validation, t)
+    const build = upto(a.build, t)
+    return {
+      ...a, stage, stageAt, approvals: approvalsAt(a), issues, version,
+      askers: (a.askers ?? []).filter((k) => (k.foundAt ?? (stage === 'found' ? Infinity : 0)) <= t),
+      validation: validation && { ...validation, checked: validation.endedAt ? validation.checked : [], verdict: validation.endedAt ? validation.verdict : undefined },
+      build: build && { ...build, feed: (build.feed ?? []).filter((l) => l.t <= t) },
+      found: upto(a.found, t), test: upto(a.test, t), launch: upto(a.launch, t),
+      checks: (a.checks ?? []).filter((c) => (c.at ?? 0) <= t),
+      launchUrl: isLive ? a.launchUrl : undefined, pagesUrl: isLive ? a.pagesUrl : undefined, launchTitle: isLive ? a.launchTitle : undefined,
+    }
   }
   const apps = s.apps.map(map).filter(Boolean), candidates = s.candidates.map(map).filter(Boolean)
   const all = [...apps, ...candidates]
   const pend = all.find((a) => a.approvals?.at(-1) && !a.approvals.at(-1).reply)
-  const lastBuildEv = [...ev].reverse().find((e) => !s.apps.find((a) => a.slug === e.slug)?.seeded)
-  return { ...s, apps, candidates, builder: lastBuildEv ? { slug: lastBuildEv.slug } : undefined, pendingApproval: pend ? { slug: pend.slug, kind: pend.approvals.at(-1).kind } : undefined }
+  // the left side follows the wish the loop ended up building, as soon as it has appeared
+  const chosen = s.builder && ev.some((e) => e.slug === s.builder.slug) ? s.builder.slug : [...ev].reverse().find((e) => !s.apps.find((a) => a.slug === e.slug)?.seeded)?.slug
+  const discovery = upto(s.discovery, t)
+  return { ...s, apps, candidates, discovery: discovery && { ...discovery, hits: discovery.endedAt ? discovery.hits : [] }, builder: chosen ? { slug: chosen } : undefined, pendingApproval: pend ? { slug: pend.slug, kind: pend.approvals.at(-1).kind } : undefined }
 }
 function resetBoard() {
   keyed.clear(); qrFor = ''; previewKey = ''; NOW = () => Date.now()
-  for (const id of ['avatars', 'phone', 'checks', 'preview', 'liveLine', 'made', 'stats', 'heard', 'qr', 'library']) $('#' + id).innerHTML = ''
+  for (const id of ['hits', 'askers', 'verdict', 'summary', 'phone', 'feed', 'checks', 'preview', 'postLine', 'made', 'stats', 'heard', 'qr', 'library']) $('#' + id).innerHTML = ''
   for (const el of [...$('#issue').children]) if (el.id !== 'watching') el.remove() // copy first: removing while iterating a live collection skips nodes
-  $('#wish').innerHTML = ''; $('#people .n b').dataset.v = 0; $('#people .n b').textContent = '0'
+  $('#wish').innerHTML = ''; $('#count b').dataset.v = 0; $('#count b').textContent = '0'
   for (let i = 0; i < 6; i++) $(`#step${i}`).className = 'step'
 }
+// One replay at a time. A new run number cancels the old loop at its next step.
+let replayRun = 0
+const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 async function replay() {
   if (!live || replaying) return
-  const s = live
-  const times = new Set((s.events ?? []).map((e) => e.t))
+  const s = live, run = ++replayRun
+  const times = new Set()
+  if (s.discovery) { times.add(s.discovery.startedAt); if (s.discovery.endedAt) times.add(s.discovery.endedAt) }
+  for (const e of s.events ?? []) times.add(e.t)
   for (const a of [...s.apps, ...s.candidates]) {
-    if (!a.seeded) for (const x of a.approvals ?? []) { times.add(x.askedAt); if (x.repliedAt) times.add(x.repliedAt) }
-    for (const i of a.issues ?? []) for (const k of ['reportedAt', 'askedAt', 'repliedAt', 'fixedAt', 'resolvedAt']) if (i[k]) times.add(i[k])
+    if (!a.seeded) {
+      for (const x of a.approvals ?? []) { times.add(x.askedAt); if (x.repliedAt) times.add(x.repliedAt) }
+      for (const k of a.askers ?? []) if (k.foundAt) times.add(k.foundAt)
+      for (const sp of [a.validation, a.build, a.test, a.launch]) if (sp) { times.add(sp.startedAt); if (sp.endedAt) times.add(sp.endedAt) }
+      for (const l of a.build?.feed ?? []) times.add(l.t)
+      for (const c of a.checks ?? []) if (c.at) times.add(c.at)
+    }
+    for (const i of a.issues ?? []) {
+      for (const k of ['reportedAt', 'askedAt', 'repliedAt', 'fixedAt', 'resolvedAt', 'closedAt']) if (i[k]) times.add(i[k])
+      for (const sp of [i.change, i.test, i.publish]) if (sp) { times.add(sp.startedAt); if (sp.endedAt) times.add(sp.endedAt) }
+      for (const l of i.change?.feed ?? []) times.add(l.t)
+      for (const c of i.test?.checks ?? []) if (c.at) times.add(c.at)
+      if (i.reply) times.add(i.reply.at)
+    }
   }
-  const pts = [...times].sort((a, b) => a - b)
+  const pts = [...times].filter(Boolean).sort((a, b) => a - b)
   if (!pts.length) return
   replaying = true; resetBoard()
+  NOW = () => pts[0] - 1
   render(rewind(s, pts[0] - 1))
-  await new Promise((r) => setTimeout(r, 900))
+  await wait(900)
   let prev = pts[0]
   for (const t of pts) {
-    if (!replaying) return
-    await new Promise((r) => setTimeout(r, Math.min(2600, Math.max(900, (t - prev) / 2))))
+    if (run !== replayRun) return
+    await wait(Math.min(1800, Math.max(250, (t - prev) / 2)))
+    if (run !== replayRun) return
     prev = t
     NOW = () => t + 1
     render(rewind(s, t + 1))
   }
+  await wait(1500)
+  if (run !== replayRun) return
   replaying = false
-  setTimeout(() => { if (!replaying && live) { NOW = () => Date.now(); render(live) } }, 1500)
+  NOW = () => Date.now()
+  if (live) render(live)
 }
+function stopReplay() { replayRun++; replaying = false; resetBoard(); if (live) render(live) }
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'r' || e.key === 'R' || e.key === 'Escape') { replaying = false; resetBoard(); if (live) render(live) }
-  if (e.key === ' ') { e.preventDefault(); replaying ? (replaying = false, resetBoard(), live && render(live)) : replay() }
+  if (e.repeat) return
+  if (e.key === 'r' || e.key === 'R' || e.key === 'Escape') stopReplay()
+  if (e.key === ' ') { e.preventDefault(); replaying ? stopReplay() : replay() }
   if (e.key === 'f' || e.key === 'F') document.body.classList.toggle('focus')
 })
+// A click inside the app preview moves keyboard focus into the iframe; take it back so Space still works.
+addEventListener('blur', () => setTimeout(() => { if (document.activeElement?.tagName === 'IFRAME') { document.activeElement.blur(); window.focus() } }, 0))
 </script>
 </body>
 </html>

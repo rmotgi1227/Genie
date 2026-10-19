@@ -8,8 +8,8 @@
 // Reddit's own JSON/RSS endpoints are blocked without auth, so authors come from Parallel.
 // With no PARALLEL_API_KEY the fake versions in discover.fake.ts run instead.
 import { writeFileSync, mkdirSync } from 'node:fs'
-import type { App, Asker } from '../lib/types'
-import { advance, slugify, uniqueAuthors } from '../lib/state'
+import type { App, Asker, Hit } from '../lib/types'
+import { state, save, advance, slugify, uniqueAuthors } from '../lib/state'
 import { parallelEnabled, search, respond, obj, str, bool, en, arr, type SearchHit } from '../lib/parallel'
 import { scrub } from '../lib/guard'
 import * as fake from './discover.fake'
@@ -70,10 +70,16 @@ type Grouped = {
 export async function discover(): Promise<App[]> {
   if (!parallelEnabled()) return fake.discover()
   console.log('[parallel] searching reddit for wishes')
+  state.discovery = { startedAt: Date.now(), queries: DISCOVERY_QUERIES, hits: [] }
+  save()
   const after = new Date(Date.now() - DAYS_BACK * 864e5).toISOString().slice(0, 10)
   const hits = (await search({ objective: DISCOVERY_OBJECTIVE, queries: DISCOVERY_QUERIES, domains: REDDIT, maxResults: 25, afterDate: after }))
     .filter((h) => isThread(h.url))
   dump('discover.search', hits)
+  // the board shows the posts as they came back
+  state.discovery.hits = hits.map<Hit>((h) => ({ title: scrub(h.title ?? '', 200).replace(/\s*:\s*r\/\w+\s*$/, ''), subreddit: sub(h.url), author: authorFromText(h.excerpts.join(' ')), url: canon(h.url), postedAt: h.publish_date ?? undefined }))
+  state.discovery.endedAt = Date.now()
+  save()
   console.log(`[parallel] ${hits.length} reddit threads, grouping into wishes`)
 
   const list = hits.map((h, i) => `#${i} ${h.url}\nTITLE: ${scrub(h.title ?? '', 200)}\n${scrub(h.excerpts.join(' '), 600)}`).join('\n\n')
@@ -128,9 +134,12 @@ type Extracted = {
 
 async function findAskers(app: App): Promise<{ askers: Asker[]; why: string; prior: Extracted['prior_art']; existing: Extracted['best_existing_tool'] }> {
   const spec = app.spec ?? app.wish.text
+  const queries = [`wish there was ${spec}`, `is there an app for ${spec}`, `looking for a tool ${spec}`]
+  app.validation = { startedAt: Date.now(), queries, checked: [] }
+  save()
   const hits = (await search({
     objective: `Reddit posts by different people asking for or wishing for ${spec}. Only posts where the author wants this tool to exist.`,
-    queries: [`wish there was ${spec}`, `is there an app for ${spec}`, `looking for a tool ${spec}`],
+    queries,
     domains: REDDIT,
     maxResults: 12,
   })).filter((h) => isThread(h.url))
@@ -164,9 +173,16 @@ async function findAskers(app: App): Promise<{ askers: Asker[]; why: string; pri
     const hit = byUrl.get(canon(t.url))
     const author = t.author || authorFromText(hit?.excerpts.join(' ') ?? '') || ''
     if (!author) continue
-    askers.push({ author, url: canon(t.url), quote: scrub(t.quote || hit?.title || '', 160), source: `r/${t.subreddit || sub(t.url)}`, postedAt: hit?.publish_date ?? undefined })
+    askers.push({ author, url: canon(t.url), quote: scrub(t.quote || hit?.title || '', 160), source: `r/${t.subreddit || sub(t.url)}`, postedAt: hit?.publish_date ?? undefined, foundAt: Date.now() })
   }
-  return { askers: dedupe(askers), why: x.why_build_it, prior: x.prior_art, existing: x.best_existing_tool }
+  const unique = dedupe(askers)
+  app.askers = unique
+  app.validation.checked = x.best_existing_tool?.name ? [{ name: x.best_existing_tool.name, url: x.best_existing_tool.url, verdict: x.best_existing_tool.why }] : []
+  app.validation.priorArt = x.prior_art
+  app.validation.verdict = x.prior_art === 'strong_existing_tool' ? `Already exists: ${x.best_existing_tool.name}` : x.why_build_it
+  app.validation.endedAt = Date.now()
+  save()
+  return { askers: unique, why: x.why_build_it, prior: x.prior_art, existing: x.best_existing_tool }
 }
 
 // Fills in askers, spec and why for the top wishes. Returns buildable wishes, most askers first.

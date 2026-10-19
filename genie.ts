@@ -7,7 +7,7 @@ import './lib/env'
 import { createServer } from 'node:http'
 import { readFileSync, existsSync, statSync } from 'node:fs'
 import { join, normalize, extname } from 'node:path'
-import type { App, Approval, ApprovalKind, Issue, Report, Stage } from './lib/types'
+import type { App, Approval, ApprovalKind, Check, FeedLine, Issue, Report, Stage } from './lib/types'
 import { state, save, reset, advance, sleep, uniqueAuthors, liveApps, mutex } from './lib/state'
 import { discover, validate, triage, newApp } from './steps/discover'
 import * as fake from './steps/discover.fake'
@@ -69,7 +69,7 @@ const taken = (slug: string) => declined.has(slug) || state.apps.some((b) => b.s
 async function freshQueue(): Promise<App[]> {
   const found = (await discover()).filter((a) => !taken(a.slug))
   const now = Date.now()
-  for (const a of found) a.stageAt = { found: now, ...a.stageAt }
+  for (const a of found) { a.stageAt = { found: now, ...a.stageAt }; if (state.discovery) a.found = { startedAt: state.discovery.startedAt, endedAt: state.discovery.endedAt } }
   state.candidates = found
   save()
   for (const a of found) advance(a.slug, 'validating')
@@ -131,15 +131,20 @@ async function buildAndLaunch(app: App, resumeFrom?: Stage): Promise<boolean> {
   if (resumeFrom === 'awaiting_post_approval' && app.screenshot) {
     t = { ok: true, screenshot: app.screenshot, checks: app.checks }
   } else {
-    advance(app.slug, 'building', { checks: [] })
-    await build(app)
-    advance(app.slug, 'testing', { url: `/apps/${app.slug}/`, version: 1, checks: [WRITING] })
-    t = await test(app)
+    advance(app.slug, 'building', { checks: [], build: { startedAt: Date.now(), feed: [] } })
+    await build(app, (line) => { app.build!.feed.push(line); save() })
+    app.build!.endedAt = Date.now()
+    advance(app.slug, 'testing', { url: `/apps/${app.slug}/`, version: 1, checks: [{ ...WRITING, at: Date.now() }], test: { startedAt: Date.now() } })
+    const live = (c: Check) => { app.checks!.push(c); save() }
+    t = await test(app, live)
     if (!t.ok) {
-      await fix(app, { text: t.error ?? 'test failed', kind: 'bug' }) // one retry, error goes back to Cline
-      t = await test(app)
+      app.build!.feed.push({ t: Date.now(), text: `Test failed: ${t.error}. Fixing it`, file: 'index.html' })
+      await fix(app, { text: t.error ?? 'test failed', kind: 'bug' }, (line) => { app.build!.feed.push(line); save() }) // one retry, error goes back to Cline
+      app.checks = [WRITING]
+      t = await test(app, live)
     }
     app.checks = [WRITING, ...(t.checks ?? [])]
+    app.test!.endedAt = Date.now()
     save()
     if (!t.ok) {
       advance(app.slug, 'failed')
@@ -157,10 +162,12 @@ async function buildAndLaunch(app: App, resumeFrom?: Stage): Promise<boolean> {
       return false
     }
     // r === 'idea': a change request
-    advance(app.slug, 'building', { checks: [] })
-    await fix(app, { text: reply, kind: 'feature' })
-    advance(app.slug, 'testing', { checks: [WRITING] })
-    t = await test(app)
+    advance(app.slug, 'building', { checks: [], build: { startedAt: Date.now(), feed: [] } })
+    await fix(app, { text: reply, kind: 'feature' }, (line) => { app.build!.feed.push(line); save() })
+    app.build!.endedAt = Date.now()
+    advance(app.slug, 'testing', { checks: [{ ...WRITING, at: Date.now() }], test: { startedAt: Date.now() } })
+    t = await test(app, (c) => { app.checks!.push(c); save() })
+    app.test!.endedAt = Date.now()
     if (!t.ok) {
       advance(app.slug, 'failed')
       return false
@@ -169,8 +176,11 @@ async function buildAndLaunch(app: App, resumeFrom?: Stage): Promise<boolean> {
     save()
   }
 
+  app.launch = { startedAt: Date.now() }
+  save()
   const posted = await launch(app)
   app.version ||= 1
+  app.launch.endedAt = Date.now()
   advance(app.slug, 'launched', posted)
   snapshotVersion(app) // v1.png, the "before" for the first upgrade
   advance(app.slug, 'maintaining')
@@ -224,26 +234,35 @@ async function handleIssue(app: App, issue: Issue) {
   const { r } = await ask(app, 'issue', q, HELP_ISSUE, { issueId: issue.id, accept: ['yes', 'no'] })
   issue.repliedAt = Date.now()
   if (r === 'no') {
-    Object.assign(issue, { status: 'declined', resolvedAt: Date.now() })
+    const text = `Thanks for the ${issue.kind === 'bug' ? 'report' : 'suggestion'}! Not planned right now.`
+    const { url } = await resolveIssue(app, issue, text)
+    Object.assign(issue, { status: 'declined', reply: { text, url, at: Date.now() }, closedAt: Date.now(), resolvedAt: Date.now() })
     save()
-    await resolveIssue(app, issue, `Thanks for the ${issue.kind === 'bug' ? 'report' : 'suggestion'}! Not planned right now.`)
     resolvedThisRun++
     return
   }
 
   issue.before = snapshotVersion(app) ?? app.screenshot
   issue.status = 'fixing'
+  issue.change = { startedAt: Date.now(), feed: [] }
   save()
-  await fix(app, issue)
+  const feed = (line: FeedLine) => { issue.change!.feed.push(line); save() }
+  await fix(app, issue, feed)
+  issue.change.endedAt = Date.now()
   const next = app.version + 1
   const entry = stampChangelog(app, issue, next)
   issue.status = 'testing'
+  issue.test = { startedAt: Date.now(), checks: [] }
   save()
-  let t = await test(app)
+  const live = (c: Check) => { issue.test!.checks.push(c); save() }
+  let t = await test(app, live)
   if (!t.ok) {
-    await fix(app, { text: t.error ?? 'test failed', kind: 'bug' }) // one retry, error goes back to Cline
-    t = await test(app)
+    feed({ t: Date.now(), text: `Test failed: ${t.error}. Fixing it`, file: 'index.html' })
+    await fix(app, { text: t.error ?? 'test failed', kind: 'bug' }, feed) // one retry, error goes back to Cline
+    issue.test.checks = []
+    t = await test(app, live)
   }
+  issue.test.endedAt = Date.now()
   if (!t.ok) {
     console.log(`[genie] change for ${issue.id} failed the test (${t.error}), leaving it`)
     Object.assign(issue, { status: 'ignored', resolvedAt: Date.now() })
@@ -253,13 +272,18 @@ async function handleIssue(app: App, issue: Issue) {
   app.version = next
   ;(app.changelog ??= []).push(entry)
   issue.status = 'shipping'
+  issue.publish = { startedAt: Date.now() }
   save()
   app.pagesUrl = await publish(app)
+  issue.publish.endedAt = Date.now()
   app.screenshot = t.screenshot
   issue.after = snapshotVersion(app)
-  Object.assign(issue, { status: 'fixed', fixedAt: Date.now(), resolvedAt: Date.now(), version: app.version })
+  Object.assign(issue, { status: 'fixed', fixedAt: Date.now(), version: app.version })
   advance(app.slug, 'maintaining', { screenshot: t.screenshot })
-  await resolveIssue(app, issue, `Done ✅ v${app.version}: ${issue.kind === 'bug' ? 'fixed' : 'added'} ${issue.title}. ${app.pagesUrl}`)
+  const text = `Done ✅ v${app.version}: ${issue.kind === 'bug' ? 'fixed' : 'added'} ${issue.title}. ${app.pagesUrl}`
+  const { url } = await resolveIssue(app, issue, text)
+  Object.assign(issue, { reply: { text, url, at: Date.now() }, closedAt: Date.now(), resolvedAt: Date.now() })
+  save()
   resolvedThisRun++
 }
 
@@ -311,6 +335,10 @@ async function seedLibrary() {
     for (const st of ['found', 'validating', 'awaiting_approval', 'building', 'testing', 'awaiting_post_approval', 'launched', 'maintaining'] as Stage[]) at[st] = t0 += 40_000
     app.seeded = true
     app.stageAt = at
+    app.validation = { startedAt: at.validating!, endedAt: at.validating! + 14_000, queries: [], checked: [] }
+    app.build = { startedAt: at.building!, endedAt: at.building! + 48_000, feed: [] }
+    app.test = { startedAt: at.testing!, endedAt: at.testing! + 4_000 }
+    app.launch = { startedAt: at.awaiting_post_approval! + 12_000, endedAt: at.launched! }
     app.approvals = [
       { kind: 'build', text: `${uniqueAuthors(app.askers)} people want ${app.spec}. ${app.why} ${HELP}.`, askedAt: at.awaiting_approval!, reply: 'yes', repliedAt: at.awaiting_approval! + 9_000 },
       { kind: 'post', text: `Here's ${app.spec}. Post it to r/GenieGrants? ${HELP_POST}.`, askedAt: at.awaiting_post_approval!, reply: 'yes', repliedAt: at.awaiting_post_approval! + 12_000 },

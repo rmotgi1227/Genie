@@ -51,8 +51,9 @@ export async function pollReports(apps: App[]): Promise<Report[]> {
   return [{ id: `gh_${n}`, slug: oldest.slug, source: 'github', author: 'maya_k', url: `https://github.com/genie-wishes/wishes/issues/${n}`, text }]
 }
 
-// Comments on the report and closes it, whether it shipped or was declined.
-export async function resolveIssue(app: App, issue: Issue, text: string): Promise<void> {
+// Comments on the report and closes it, whether it shipped or was declined. Returns where the comment is.
+export async function resolveIssue(app: App, issue: Issue, text: string): Promise<{ url?: string }> {
   console.log(`[${issue.source === 'github' ? 'github' : 'composio'}] reply on ${issue.id} (${app.slug}): "${text}" · closed (fake)`)
   await fakeDelay()
+  return { url: issue.url ? `${issue.url}#issuecomment-${Date.now().toString().slice(-7)}` : undefined }
 }

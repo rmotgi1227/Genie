@@ -6,17 +6,29 @@
 // app's planted bug (totals not re-rendered after removing a person). Anything else is a no-op.
 // stampChangelog() is REAL and runs after every shipped change, whoever made it.
 import { readFileSync, writeFileSync } from 'node:fs'
-import type { App, Issue } from '../lib/types'
-import { fakeDelay } from '../lib/state'
+import type { App, FeedLine, Issue } from '../lib/types'
+import { fakeDelay, sleep } from '../lib/state'
 import { appFile } from './build'
 
-export async function fix(app: App, report: { text: string; kind?: Issue['kind'] }): Promise<void> {
+export async function fix(app: App, report: { text: string; kind?: Issue['kind'] }, onLine?: (line: FeedLine) => void): Promise<void> {
   console.log(`[cline] ${report.kind === 'feature' ? 'adding' : 'fixing'} on ${app.slug}: "${report.text}" (fake)`)
-  await fakeDelay()
   const html = readFileSync(appFile(app), 'utf8')
+  const dark = /dark\s*mode|dark\s*theme|night\s*mode/i.test(report.text)
+  const bug = !dark && /total|remove/i.test(report.text)
+  const lines = dark
+    ? ['Reading CONTRACT.md', 'Reading index.html', 'Adding a dark set of colors', 'Adding a dark mode toggle in the corner', 'Remembering the choice', 'Making dark the default']
+    : bug
+      ? ['Reading index.html', 'Finding where a person is removed', 'Re-rendering the totals after a remove']
+      : ['Reading index.html', 'Looking for what to change']
+  const pace = Number(process.env.FAKE_DELAY_MS ?? 700) / 2
+  for (const text of lines) {
+    await sleep(pace)
+    onLine?.({ t: Date.now(), text, file: text.includes('CONTRACT') ? 'CONTRACT.md' : 'index.html' })
+  }
+  await fakeDelay()
   let out = html
-  if (/dark\s*mode|dark\s*theme|night\s*mode/i.test(report.text)) out = addDarkMode(html)
-  else if (/total|remove/i.test(report.text)) out = html.replace(/renderPeople\(\); renderItems\(\)\s*\n(\s*)\}/, 'render()\n$1}')
+  if (dark) out = addDarkMode(html)
+  else if (bug) out = html.replace(/renderPeople\(\); renderItems\(\)\s*\n(\s*)\}/, 'render()\n$1}')
   if (out === html) console.log('[cline] (fake) nothing to change for that request')
   writeFileSync(appFile(app), out)
 }
