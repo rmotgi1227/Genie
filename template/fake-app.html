@@ -5,26 +5,64 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{SPEC}}</title>
 <style>
-  body { font: 16px/1.4 system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; color: #1d1d1f; }
-  h1 { font-size: 22px; } h2 { font-size: 16px; margin: 20px 0 8px; }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
-  input { padding: 6px 8px; font: inherit; } button { padding: 6px 10px; font: inherit; cursor: pointer; }
-  .chip { background: #eef; border-radius: 12px; padding: 2px 10px; }
-  .total { font-weight: 600; }
-  footer { margin-top: 32px; font-size: 13px; color: #666; }
+  :root { --bg: #f4f4f6; --card: #ffffff; --ink: #16161a; --ink-2: #5c5c66; --line: #e6e6ea; --accent: #2f6df6; --accent-soft: #eaf0ff; --danger: #b42318; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  main { max-width: 520px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 26px; letter-spacing: -.02em; margin: 8px 0 4px; }
+  .sub { color: var(--ink-2); margin: 0 0 20px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 12px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .person { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); }
+  .person:first-child { border-top: 0; padding-top: 0; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  .chip i { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700; }
+  .add { display: flex; gap: 8px; margin-top: 12px; }
+  input { flex: 1; min-width: 0; padding: 10px 12px; font: inherit; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+  button { padding: 10px 14px; font: inherit; font-weight: 600; border: 0; border-radius: 10px; background: var(--accent); color: #fff; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--danger); padding: 6px 8px; font-weight: 500; }
+  .item { padding: 10px 0; border-top: 1px solid var(--line); }
+  .item:first-child { border-top: 0; padding-top: 0; }
+  .item .top { display: flex; justify-content: space-between; font-weight: 600; }
+  .item .who { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .item label { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+  .item label:has(input:checked) { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600; }
+  .item label input { display: none; }
+  .total-row { display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--line); font-size: 17px; }
+  .total-row:first-child { border-top: 0; padding-top: 0; }
+  .total-row b { font-variant-numeric: tabular-nums; }
+  .grand { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 12px; border-top: 2px solid var(--ink); font-weight: 700; font-size: 18px; }
+  footer { margin-top: 24px; font-size: 13px; color: var(--ink-2); text-align: center; }
+  footer a { color: var(--accent); }
 </style>
 </head>
 <body>
-<h1>Split the bill by item</h1>
-<h2>People</h2>
-<div id="people"></div>
-<div class="row"><input id="pname" placeholder="Name"><button id="addp">Add person</button></div>
-<h2>Items</h2>
-<div id="items"></div>
-<div class="row"><input id="iname" placeholder="Item"><input id="iprice" type="number" placeholder="Price" style="width:90px"><button id="addi">Add item</button></div>
-<h2>Who owes what</h2>
-<div id="totals"></div>
-<footer>Wished by u/{{WISHER}}, granted by Genie (open source) · report a bug → <a href="{{ISSUES_URL}}">{{ISSUES_URL}}</a></footer>
+<main>
+  <h1>Split the bill by item</h1>
+  <p class="sub">Tick who had what. Everyone pays for their share only.</p>
+
+  <section>
+    <h2>People</h2>
+    <div id="people"></div>
+    <div class="add"><input id="pname" placeholder="Add a name"><button id="addp">Add</button></div>
+  </section>
+
+  <section>
+    <h2>Items</h2>
+    <div id="items"></div>
+    <div class="add"><input id="iname" placeholder="Item"><input id="iprice" type="number" inputmode="decimal" placeholder="Price" style="max-width:110px"><button id="addi">Add</button></div>
+  </section>
+
+  <section>
+    <h2>Who owes what</h2>
+    <div id="totals"></div>
+    <div class="grand"><span>Total</span><b id="grand">$0.00</b></div>
+  </section>
+
+  <footer>Wished by u/{{WISHER}}, granted by Genie (open source) · report a bug → <a href="{{ISSUES_URL}}">{{ISSUES_URL}}</a></footer>
+</main>
 <script>
 let people = ['Ana', 'Ben', 'Cy']
 let items = [
@@ -33,21 +71,23 @@ let items = [
 ]
 const $ = (id) => document.getElementById(id)
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+const money = (n) => `$${n.toFixed(2)}`
 
 function renderPeople() {
   $('people').innerHTML = people.map((p) =>
-    `<div class="row"><span class="chip">${esc(p)}</span><button data-remove="${esc(p)}">remove</button></div>`).join('')
+    `<div class="person"><span class="chip"><i>${esc(p[0].toUpperCase())}</i>${esc(p)}</span><button class="ghost" data-remove="${esc(p)}">Remove</button></div>`).join('')
 }
 function renderItems() {
   $('items').innerHTML = items.map((it, i) =>
-    `<div class="row"><b>${esc(it.name)}</b> $${it.price.toFixed(2)} ` +
-    people.map((p) => `<label><input type="checkbox" data-item="${i}" data-person="${esc(p)}" ${it.who.includes(p) ? 'checked' : ''}>${esc(p)}</label>`).join(' ') +
-    `</div>`).join('')
+    `<div class="item"><div class="top"><span>${esc(it.name)}</span><span>${money(it.price)}</span></div><div class="who">` +
+    people.map((p) => `<label><input type="checkbox" data-item="${i}" data-person="${esc(p)}" ${it.who.includes(p) ? 'checked' : ''}>${esc(p)}</label>`).join('') +
+    `</div></div>`).join('')
 }
 function renderTotals() {
   const owe = Object.fromEntries(people.map((p) => [p, 0]))
   for (const it of items) for (const p of it.who) if (p in owe) owe[p] += it.price / it.who.length
-  $('totals').innerHTML = people.map((p) => `<div class="row">${esc(p)}: <span class="total">$${owe[p].toFixed(2)}</span></div>`).join('')
+  $('totals').innerHTML = people.map((p) => `<div class="total-row"><span>${esc(p)}</span><b>${money(owe[p])}</b></div>`).join('')
+  $('grand').textContent = money(items.reduce((s, it) => s + it.price, 0))
 }
 function render() { renderPeople(); renderItems(); renderTotals() }
 

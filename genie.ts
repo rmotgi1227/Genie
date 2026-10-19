@@ -12,6 +12,7 @@ import { askApproval } from './steps/askApproval'
 import { build, test } from './steps/build'
 import { launch, publish, pollReports, replyFixed } from './steps/launch'
 import { fix } from './steps/fix'
+import { scrub, suspicious } from './lib/guard'
 
 const args = new Set(process.argv.slice(2))
 const PORT = Number(process.env.PORT ?? 3000)
@@ -159,7 +160,13 @@ async function maintain(app: App) {
     const reports = [...(await pollReports(app)), ...manualReports.splice(0)]
     for (const rep of reports) {
       if (app.issues.some((i) => i.id === rep.id)) continue
-      const { kind, summary } = await triage(rep.text)
+      if (suspicious(rep.text)) {
+        console.log(`[genie] report ${rep.id} looks like an instruction, ignoring it`)
+        app.issues.push({ id: rep.id, source: rep.source, text: scrub(rep.text, 200) || '(removed)', status: 'ignored', reportedAt: Date.now() })
+        save()
+        continue
+      }
+      const { kind, summary } = await triage(scrub(rep.text, 500))
       const issue = { id: rep.id, source: rep.source, text: summary, status: 'triaged' as const, reportedAt: Date.now() }
       app.issues.push(issue)
       save()

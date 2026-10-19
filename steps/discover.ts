@@ -11,6 +11,7 @@ import { writeFileSync, mkdirSync } from 'node:fs'
 import type { App, Asker } from '../lib/types'
 import { advance, slugify, uniqueAuthors } from '../lib/state'
 import { parallelEnabled, search, respond, obj, str, bool, en, arr, type SearchHit } from '../lib/parallel'
+import { scrub } from '../lib/guard'
 import * as fake from './discover.fake'
 
 const REDDIT = ['reddit.com']
@@ -75,7 +76,7 @@ export async function discover(): Promise<App[]> {
   dump('discover.search', hits)
   console.log(`[parallel] ${hits.length} reddit threads, grouping into wishes`)
 
-  const list = hits.map((h, i) => `#${i} ${h.url}\nTITLE: ${h.title ?? ''}\n${h.excerpts.join(' ').slice(0, 600)}`).join('\n\n')
+  const list = hits.map((h, i) => `#${i} ${h.url}\nTITLE: ${scrub(h.title ?? '', 200)}\n${scrub(h.excerpts.join(' '), 600)}`).join('\n\n')
   const grouped = await respond<Grouped>({
     name: 'wishes',
     input:
@@ -107,7 +108,7 @@ export async function discover(): Promise<App[]> {
     const author = w.wisher_author || authorFromText(hit.excerpts.join(' ')) || ''
     const app = newApp(w.one_line_spec, author, 'reddit', canon(hit.url))
     app.spec = w.one_line_spec
-    app.wish.text = (hit.title ?? w.one_line_spec).replace(/\s*:\s*r\/\w+\s*$/, '')
+    app.wish.text = scrub(hit.title ?? w.one_line_spec, 200).replace(/\s*:\s*r\/\w+\s*$/, '')
     apps.push(app)
   }
   console.log(`[parallel] ${apps.length} buildable wishes`)
@@ -135,7 +136,7 @@ async function findAskers(app: App): Promise<{ askers: Asker[]; why: string; pri
   if (app.wish.url && !byUrl.has(canon(app.wish.url))) byUrl.set(canon(app.wish.url), { url: app.wish.url, title: app.wish.text, publish_date: null, excerpts: [app.wish.text] })
   dump(`validate.${app.slug}.search`, [...byUrl.values()])
 
-  const list = [...byUrl.values()].map((h) => `URL: ${canon(h.url)}\nTITLE: ${h.title ?? ''}\n${h.excerpts.join(' ').slice(0, 500)}`).join('\n\n')
+  const list = [...byUrl.values()].map((h) => `URL: ${canon(h.url)}\nTITLE: ${scrub(h.title ?? '', 200)}\n${scrub(h.excerpts.join(' '), 500)}`).join('\n\n')
   const x = await respond<Extracted>({
     name: 'askers',
     input:
@@ -160,7 +161,7 @@ async function findAskers(app: App): Promise<{ askers: Asker[]; why: string; pri
     const hit = byUrl.get(canon(t.url))
     const author = t.author || authorFromText(hit?.excerpts.join(' ') ?? '') || ''
     if (!author) continue
-    askers.push({ author, url: canon(t.url), quote: t.quote || hit?.title || '', source: `r/${t.subreddit || sub(t.url)}`, postedAt: hit?.publish_date ?? undefined })
+    askers.push({ author, url: canon(t.url), quote: scrub(t.quote || hit?.title || '', 160), source: `r/${t.subreddit || sub(t.url)}`, postedAt: hit?.publish_date ?? undefined })
   }
   return { askers: dedupe(askers), why: x.why_build_it, prior: x.prior_art, existing: x.best_existing_tool }
 }
