@@ -1,52 +1,73 @@
 import './lib/env'
-// Genie: the main loop. discover → validate → approve → build+test → approve post → launch → maintain.
-// Every sponsor step lives in steps/*.ts. Swap a fake for the real one by replacing that file's body;
-// the function names and types stay the same.
+// Genie: two loops that run at the same time.
+//   build loop:    discover → validate → approve → build+test → approve post → launch, then the next wish
+//   maintain loop: watch every live app for reports → approve → change → re-test → ship v{n} → reply
+// Both text the owner through one queue, so only one question is open at a time and a YES for a
+// new wish can never be read as a YES for an issue. Every sponsor step lives in steps/*.ts.
 import { createServer } from 'node:http'
 import { readFileSync, existsSync, statSync } from 'node:fs'
 import { join, normalize, extname } from 'node:path'
-import type { App, Approval, Report } from './lib/types'
-import { state, save, reset, advance, sleep, uniqueAuthors } from './lib/state'
+import type { App, Approval, ApprovalKind, Issue, Report, Stage } from './lib/types'
+import { state, save, reset, advance, sleep, uniqueAuthors, liveApps, mutex } from './lib/state'
 import { discover, validate, triage, newApp } from './steps/discover'
-import { askApproval } from './steps/askApproval'
-import { build, test } from './steps/build'
-import { launch, publish, pollReports, replyFixed } from './steps/launch'
-import { fix } from './steps/fix'
+import * as fake from './steps/discover.fake'
+import { askApproval, approvalsAreFake } from './steps/askApproval'
+import { build, test, snapshotVersion } from './steps/build'
+import { launch, publish, pollReports, resolveIssue } from './steps/launch'
+import { fix, stampChangelog } from './steps/fix'
 import { scrub, suspicious } from './lib/guard'
-import { routeReply, HELP, HELP_POST, type Reply } from './lib/reply'
+import { routeReply, HELP, HELP_POST, HELP_ISSUE, type Reply } from './lib/reply'
 
 const args = new Set(process.argv.slice(2))
 const PORT = Number(process.env.PORT ?? 3000)
 const POLL_MS = Number(process.env.POLL_MS ?? 1000)
+const DISCOVER_EVERY_MS = Number(process.env.DISCOVER_EVERY_MS ?? 10 * 60_000) // between wishes, and when nothing was found
+const NO_COOLDOWN_MS = Number(process.env.NO_COOLDOWN_MS ?? 60_000) // after a NO, before the next wish is offered
+const ONCE = args.has('--once') // demo: stop once one new app is live and one issue is answered
 
 // Reports filed by hand (POST /report). Merged with pollReports() every tick.
 const manualReports: Report[] = []
+let launchedThisRun = 0
+let resolvedThisRun = 0
 
-// ── Approval switch lives in lib/reply.ts. Deterministic, no model reads the reply. ──
-
-// Asks until the reply means something. The help line is itself the next question,
-// so it never swallows the owner's answer.
-async function ask(app: App, text: string, help: string, image?: string): Promise<{ r: Exclude<Reply, 'unknown'>; reply: string }> {
-  let prompt = text
-  while (true) {
-    const approval: Approval = { kind: state.pendingApproval?.kind ?? 'build', text: prompt, image, askedAt: Date.now() }
-    ;(app.approvals ??= []).push(approval)
+// ── The one way to text the owner. Serialized: a question about an issue waits for the open one. ──
+const askOne = mutex()
+type Asked = { r: Exclude<Reply, 'unknown'>; reply: string }
+function ask(app: App, kind: ApprovalKind, text: string, help: string, opts: { image?: string; issueId?: string; accept?: Reply[] } = {}): Promise<Asked> {
+  const accept = opts.accept ?? ['yes', 'no', 'different', 'idea']
+  return askOne(async () => {
+    state.pendingApproval = { slug: app.slug, kind, issueId: opts.issueId }
     save()
-    const reply = await askApproval(prompt, image)
-    Object.assign(approval, { reply, repliedAt: Date.now() })
-    save()
-    const r = routeReply(reply)
-    if (r !== 'unknown') return { r, reply }
-    prompt = help
-    image = undefined
-  }
+    let prompt = text
+    let image = opts.image
+    // Asks until the reply means something. The help line is itself the next question.
+    while (true) {
+      const approval: Approval = { kind, issueId: opts.issueId, text: prompt, image, askedAt: Date.now() }
+      ;(app.approvals ??= []).push(approval)
+      save()
+      const reply = await askApproval(prompt, image)
+      Object.assign(approval, { reply, repliedAt: Date.now() })
+      save()
+      const r = routeReply(reply)
+      if (r !== 'unknown' && accept.includes(r)) {
+        delete state.pendingApproval
+        save()
+        return { r, reply }
+      }
+      prompt = help
+      image = undefined
+    }
+  })
 }
+
+// ═══════════════════════════════ build loop ═══════════════════════════════
 
 // Wishes the owner said NO/DIFFERENT to, or that already have an app. Never offered again this run.
 const declined = new Set<string>()
+const taken = (slug: string) => declined.has(slug) || state.apps.some((b) => b.slug === slug)
 
 async function freshQueue(): Promise<App[]> {
-  const found = await discover()
+  const found = (await discover()).filter((a) => !taken(a.slug))
   const now = Date.now()
   for (const a of found) a.stageAt = { found: now, ...a.stageAt }
   state.candidates = found
@@ -54,30 +75,36 @@ async function freshQueue(): Promise<App[]> {
   for (const a of found) advance(a.slug, 'validating')
   const ranked = await validate(found) // mutates the apps in place; wishes that already exist stay in candidates as 'exists'
   save()
-  return ranked.filter((a) => !declined.has(a.slug) && !state.apps.some((b) => b.slug === a.slug)) // queue is a copy; shifting it must not drop wishes from state
+  return ranked.filter((a) => !taken(a.slug)) // queue is a copy; shifting it must not drop wishes from state
 }
 
-// Step 3: first approval. Returns the wish to build, or null to wait for the next discovery cycle.
-async function approveBuild(): Promise<App | null> {
-  let queue = await freshQueue()
+// Step 3: first approval. Returns the wish to build, or null after a NO.
+async function approveBuild(initial: App[] = []): Promise<App | null> {
+  let queue = initial
+  let refreshed = initial.length > 0
   while (true) {
     const next = queue.shift()
-    if (!next) queue = await freshQueue()
-    if (!next) continue
-    state.pendingApproval = { slug: next.slug, kind: 'build' }
+    if (!next) {
+      if (refreshed) {
+        console.log(`[genie] nothing new to offer, looking again in ${DISCOVER_EVERY_MS / 60_000} min`)
+        await sleep(DISCOVER_EVERY_MS)
+      }
+      queue = await freshQueue()
+      refreshed = true
+      continue
+    }
+    state.builder = { slug: next.slug }
     advance(next.slug, 'awaiting_approval')
     const n = uniqueAuthors(next.askers)
-    const { r, reply } = await ask(next, `${n} people want ${next.spec}. ${next.why} ${HELP}.`, HELP)
+    const { r, reply } = await ask(next, 'build', `${n} people want ${next.spec}. ${next.why ?? ''} ${HELP}.`.replace(/\s+/g, ' '), HELP)
     if (r !== 'yes') declined.add(next.slug)
     switch (r) {
       case 'yes':
-        delete state.pendingApproval
         state.candidates = state.candidates.filter((a) => a !== next)
         state.apps.push(next)
         save()
         return next
       case 'no':
-        delete state.pendingApproval
         advance(next.slug, 'rejected')
         return null
       case 'different':
@@ -86,9 +113,11 @@ async function approveBuild(): Promise<App | null> {
       case 'idea': {
         advance(next.slug, 'rejected')
         const mine = newApp(reply.trim(), 'owner', 'imessage', '')
+        if (taken(mine.slug)) break
         state.candidates.unshift(mine)
         const [validated] = await validate([mine])
-        queue.unshift(validated)
+        if (validated) queue.unshift(validated)
+        else console.log(`[genie] the owner's idea already exists or failed validation, moving on`)
         break
       }
     }
@@ -96,37 +125,40 @@ async function approveBuild(): Promise<App | null> {
 }
 
 // Steps 4–6: build, test, screenshot approval, launch. Returns false if nothing went public.
-async function buildAndLaunch(app: App): Promise<boolean> {
-  advance(app.slug, 'building')
-  await build(app)
-  const WRITING = { label: 'Writing the app', ok: true }
-  advance(app.slug, 'testing', { url: `/apps/${app.slug}/`, version: 1, checks: [WRITING] })
-  let t = await test(app)
-  if (!t.ok) {
-    await fix(app, { text: t.error ?? 'test failed' }) // one retry, error goes back to Cline
+const WRITING = { label: 'Writing the app', ok: true }
+async function buildAndLaunch(app: App, resumeFrom?: Stage): Promise<boolean> {
+  let t: Awaited<ReturnType<typeof test>>
+  if (resumeFrom === 'awaiting_post_approval' && app.screenshot) {
+    t = { ok: true, screenshot: app.screenshot, checks: app.checks }
+  } else {
+    advance(app.slug, 'building', { checks: [] })
+    await build(app)
+    advance(app.slug, 'testing', { url: `/apps/${app.slug}/`, version: 1, checks: [WRITING] })
     t = await test(app)
-  }
-  app.checks = [WRITING, ...(t.checks ?? [])]
-  save()
-  if (!t.ok) {
-    advance(app.slug, 'failed')
-    return false
+    if (!t.ok) {
+      await fix(app, { text: t.error ?? 'test failed', kind: 'bug' }) // one retry, error goes back to Cline
+      t = await test(app)
+    }
+    app.checks = [WRITING, ...(t.checks ?? [])]
+    save()
+    if (!t.ok) {
+      advance(app.slug, 'failed')
+      return false
+    }
   }
 
   // Step 5: second approval, with the screenshot.
   while (true) {
-    state.pendingApproval = { slug: app.slug, kind: 'post' }
     advance(app.slug, 'awaiting_post_approval', { screenshot: t.screenshot })
-    const { r, reply } = await ask(app, `Here's ${app.spec}. Post it to r/GenieGrants? ${HELP_POST}.`, HELP_POST, t.screenshot)
+    const { r, reply } = await ask(app, 'post', `Here's ${app.spec}. Post it to r/GenieGrants? ${HELP_POST}.`, HELP_POST, { image: t.screenshot })
     if (r === 'yes') break
     if (r === 'no' || r === 'different') {
-      delete state.pendingApproval
       advance(app.slug, 'shelved')
       return false
     }
     // r === 'idea': a change request
     advance(app.slug, 'building', { checks: [] })
-    await fix(app, { text: reply })
+    await fix(app, { text: reply, kind: 'feature' })
     advance(app.slug, 'testing', { checks: [WRITING] })
     t = await test(app)
     if (!t.ok) {
@@ -136,65 +168,177 @@ async function buildAndLaunch(app: App): Promise<boolean> {
     app.checks = [WRITING, ...(t.checks ?? [])]
     save()
   }
-  delete state.pendingApproval
 
   const posted = await launch(app)
+  app.version ||= 1
   advance(app.slug, 'launched', posted)
+  snapshotVersion(app) // v1.png, the "before" for the first upgrade
+  advance(app.slug, 'maintaining')
   return true
 }
 
-// Step 7: forever. Poll reports, triage, fix, re-test, push, reply.
-async function maintain(app: App) {
-  advance(app.slug, 'maintaining')
+// Picks up where a crash left off: a wish waiting for a YES is offered again, a half-built app is
+// rebuilt, an app waiting for the post YES is asked again.
+function resumePoint(): { app: App; from: Stage } | undefined {
+  const app = state.builder && [...state.apps, ...state.candidates].find((a) => a.slug === state.builder?.slug)
+  if (!app) return undefined
+  if (['awaiting_approval', 'building', 'testing', 'awaiting_post_approval'].includes(app.stage)) return { app, from: app.stage }
+  return undefined
+}
+
+async function buildLoop() {
+  const resume = resumePoint()
+  if (resume) console.log(`[genie] resuming ${resume.app.slug} from ${resume.from}`)
+  let first = true
   while (true) {
-    const reports = [...(await pollReports(app)), ...manualReports.splice(0)]
+    let app: App | null
+    let from: Stage | undefined
+    if (first && resume && resume.from !== 'awaiting_approval') {
+      app = resume.app
+      from = resume.from
+    } else {
+      app = await approveBuild(first && resume ? [resume.app] : [])
+    }
+    first = false
+    if (!app) {
+      console.log(`[genie] owner said no, next wish in ${NO_COOLDOWN_MS / 1000}s`)
+      await sleep(NO_COOLDOWN_MS)
+      continue
+    }
+    state.builder = { slug: app.slug }
+    save()
+    if (await buildAndLaunch(app, from)) launchedThisRun++
+    if (ONCE) return
+    await sleep(DISCOVER_EVERY_MS)
+  }
+}
+
+// ═══════════════════════════════ maintain loop ═══════════════════════════════
+
+async function handleIssue(app: App, issue: Issue) {
+  const name = app.spec ?? app.wish.text
+  issue.status = 'awaiting_approval'
+  issue.askedAt = Date.now()
+  save()
+  const q = issue.kind === 'bug' ? `Someone reported "${issue.text}" on ${name}. Fix it? ${HELP_ISSUE}.` : `Someone asked for "${issue.text}" on ${name}. Add it? ${HELP_ISSUE}.`
+  const { r } = await ask(app, 'issue', q, HELP_ISSUE, { issueId: issue.id, accept: ['yes', 'no'] })
+  issue.repliedAt = Date.now()
+  if (r === 'no') {
+    Object.assign(issue, { status: 'declined', resolvedAt: Date.now() })
+    save()
+    await resolveIssue(app, issue, `Thanks for the ${issue.kind === 'bug' ? 'report' : 'suggestion'}! Not planned right now.`)
+    resolvedThisRun++
+    return
+  }
+
+  issue.before = snapshotVersion(app) ?? app.screenshot
+  issue.status = 'fixing'
+  save()
+  await fix(app, issue)
+  const next = app.version + 1
+  const entry = stampChangelog(app, issue, next)
+  issue.status = 'testing'
+  save()
+  let t = await test(app)
+  if (!t.ok) {
+    await fix(app, { text: t.error ?? 'test failed', kind: 'bug' }) // one retry, error goes back to Cline
+    t = await test(app)
+  }
+  if (!t.ok) {
+    console.log(`[genie] change for ${issue.id} failed the test (${t.error}), leaving it`)
+    Object.assign(issue, { status: 'ignored', resolvedAt: Date.now() })
+    save()
+    return
+  }
+  app.version = next
+  ;(app.changelog ??= []).push(entry)
+  issue.status = 'shipping'
+  save()
+  app.pagesUrl = await publish(app)
+  app.screenshot = t.screenshot
+  issue.after = snapshotVersion(app)
+  Object.assign(issue, { status: 'fixed', fixedAt: Date.now(), resolvedAt: Date.now(), version: app.version })
+  advance(app.slug, 'maintaining', { screenshot: t.screenshot })
+  await resolveIssue(app, issue, `Done ✅ v${app.version}: ${issue.kind === 'bug' ? 'fixed' : 'added'} ${issue.title}. ${app.pagesUrl}`)
+  resolvedThisRun++
+}
+
+async function maintainLoop() {
+  while (true) {
+    const apps = liveApps()
+    const reports = [...(apps.length ? await pollReports(apps) : []), ...manualReports.splice(0)]
     for (const rep of reports) {
-      if (app.issues.some((i) => i.id === rep.id)) continue
+      const app = state.apps.find((a) => a.slug === rep.slug) ?? apps[0]
+      if (!app || app.issues.some((i) => i.id === rep.id)) continue
+      const base = { id: rep.id, source: rep.source, author: rep.author, url: rep.url, reportedAt: Date.now() }
       if (suspicious(rep.text)) {
         console.log(`[genie] report ${rep.id} looks like an instruction, ignoring it`)
-        app.issues.push({ id: rep.id, source: rep.source, text: scrub(rep.text, 200) || '(removed)', status: 'ignored', reportedAt: Date.now() })
+        const text = scrub(rep.text, 200) || '(removed)'
+        app.issues.push({ ...base, kind: 'feature', text, title: text, status: 'ignored', resolvedAt: Date.now() })
         save()
         continue
       }
-      const { kind, summary } = await triage(scrub(rep.text, 500))
-      const issue = { id: rep.id, source: rep.source, text: summary, status: 'triaged' as const, reportedAt: Date.now() }
+      const { kind, summary, title } = await triage(scrub(rep.text, 500))
+      const issue: Issue = { ...base, kind: kind === 'noise' ? 'feature' : kind, text: summary, title, status: 'triaged' }
       app.issues.push(issue)
       save()
       if (kind === 'noise') {
-        Object.assign(issue, { status: 'ignored' })
+        Object.assign(issue, { status: 'ignored', resolvedAt: Date.now() })
         save()
         continue
       }
-      Object.assign(issue, { status: 'fixing' })
-      save()
-      await fix(app, issue)
-      const t = await test(app)
-      if (!t.ok) {
-        console.log(`[genie] fix for ${issue.id} failed the test, leaving it`)
-        Object.assign(issue, { status: 'triaged' })
-        save()
-        continue
-      }
-      app.version++
-      await publish(app)
-      Object.assign(issue, { status: 'fixed', fixedAt: Date.now(), version: app.version })
-      advance(app.slug, 'maintaining', { screenshot: t.screenshot })
-      await replyFixed(app, issue)
+      await handleIssue(app, issue)
     }
-    if (args.has('--once') && app.issues.some((i) => i.status === 'fixed')) {
-      console.log('[genie] --once: first fix shipped, done')
+    if (ONCE && launchedThisRun > 0 && resolvedThisRun > 0) {
+      console.log('[genie] --once: a new app is live and an issue is answered, done')
       process.exit(0)
     }
     await sleep(POLL_MS)
   }
 }
 
-// ── Server: board, /state, the built apps, manual reports. ──
+// ═══════════════════════════════ fake library ═══════════════════════════════
+
+// With fake approvals, --reset also plants two apps "built yesterday" so the maintain loop has
+// something to look after. --seed does the same with a real phone, for rehearsing issue approvals.
+async function seedLibrary() {
+  const yesterday = Date.now() - 86_400_000
+  const wishes = (await fake.discover()).filter((_, i) => i === 0 || i === 2) // bill splitter, parking meter
+  const ranked = await fake.validate(wishes)
+  let t0 = yesterday
+  for (const app of ranked) {
+    const at: Partial<Record<Stage, number>> = {}
+    for (const st of ['found', 'validating', 'awaiting_approval', 'building', 'testing', 'awaiting_post_approval', 'launched', 'maintaining'] as Stage[]) at[st] = t0 += 40_000
+    app.seeded = true
+    app.stageAt = at
+    app.approvals = [
+      { kind: 'build', text: `${uniqueAuthors(app.askers)} people want ${app.spec}. ${app.why} ${HELP}.`, askedAt: at.awaiting_approval!, reply: 'yes', repliedAt: at.awaiting_approval! + 9_000 },
+      { kind: 'post', text: `Here's ${app.spec}. Post it to r/GenieGrants? ${HELP_POST}.`, askedAt: at.awaiting_post_approval!, reply: 'yes', repliedAt: at.awaiting_post_approval! + 12_000 },
+    ]
+    state.apps.push(app)
+    await build(app)
+    app.url = `/apps/${app.slug}/`
+    app.version = 1
+    const t = await test(app)
+    app.checks = [WRITING, ...(t.checks ?? [])]
+    app.screenshot = t.screenshot
+    Object.assign(app, await launch(app))
+    app.stage = 'maintaining'
+    snapshotVersion(app)
+    save()
+    t0 += 3_600_000
+  }
+  state.candidates = []
+  save()
+  console.log(`[genie] library seeded with ${ranked.map((a) => a.slug).join(', ')}`)
+}
+
+// ═══════════════════════════════ server ═══════════════════════════════
 const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json' }
 
 function serveFile(res: import('node:http').ServerResponse, root: string, rel: string) {
   const path = normalize(join(root, rel))
-  if (!path.startsWith(normalize(root))) return res.writeHead(403).end()
+  if (!path.startsWith(normalize(root) + '/') && path !== normalize(root)) return res.writeHead(403).end()
   const file = existsSync(path) && statSync(path).isDirectory() ? join(path, 'index.html') : path
   if (!existsSync(file)) return res.writeHead(404).end('not found')
   res.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream', 'cache-control': 'no-store' })
@@ -208,12 +352,17 @@ function startServer() {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
       return res.end(JSON.stringify(state))
     }
+    // File a report by hand: POST /report?slug=<app> with the text as the body, or a JSON {slug, text, author}.
     if (req.method === 'POST' && url.pathname === '/report') {
       let body = ''
-      req.on('data', (c) => (body += c))
+      req.on('data', (c) => { if (body.length < 10_000) body += c })
       req.on('end', () => {
-        manualReports.push({ id: `manual_${Date.now()}`, source: 'github', text: body.trim() })
-        res.writeHead(202).end('ok')
+        let slug = url.searchParams.get('slug') ?? '', text = body.trim(), author = url.searchParams.get('author') ?? 'someone'
+        try { const j = JSON.parse(body); slug = j.slug ?? slug; text = j.text ?? text; author = j.author ?? author } catch {}
+        if (!slug) slug = [...liveApps()].sort((a, b) => (a.stageAt?.launched ?? 0) - (b.stageAt?.launched ?? 0))[0]?.slug ?? ''
+        const id = `manual_${Date.now()}`
+        manualReports.push({ id, slug, source: 'github', text, author, url: `https://github.com/genie-wishes/wishes/issues/${id}` })
+        res.writeHead(202).end(`ok ${slug}`)
       })
       return
     }
@@ -226,17 +375,8 @@ function startServer() {
 async function main() {
   if (args.has('--reset')) reset()
   startServer()
-  // Resume: an app already live goes straight back to looking after it.
-  const live = state.apps.find((a) => a.stage === 'launched' || a.stage === 'maintaining')
-  if (live) return maintain(live)
-  while (true) {
-    const app = await approveBuild()
-    if (!app) {
-      await sleep(POLL_MS * 5) // NO → wait for the next discovery cycle
-      continue
-    }
-    if (await buildAndLaunch(app)) return maintain(app)
-  }
+  if (args.has('--seed') || (args.has('--reset') && approvalsAreFake())) await seedLibrary()
+  await Promise.all([buildLoop(), maintainLoop()])
 }
 
 main().catch((e) => {

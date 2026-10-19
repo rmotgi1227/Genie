@@ -1,10 +1,10 @@
 // CLINE — build one index.html, then smoke-test it with Playwright.
-// build() is FAKE for now (copies the template).
+// build() is FAKE for now: it picks the sample app in template/apps/ that matches the spec.
 //   REAL: `cline -y --json -t 180 -P $CLINE_PROVIDER -m $CLINE_MODEL "<task>"` in apps/<slug>/
 //   with template/CONTRACT.md copied in. Task = spec + askers' quotes + footer values.
 // test() is REAL: headless Chromium at 375px wide, fails on page/console errors, clicks the first
 //   button, checks the footer and viewport tag, saves apps/<slug>/screenshot.png.
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { chromium } from 'playwright'
@@ -15,16 +15,33 @@ export const appDir = (app: App) => join('apps', app.slug)
 export const appFile = (app: App) => join(appDir(app), 'index.html')
 const ISSUES_URL = process.env.ISSUES_URL ?? 'https://github.com/genie-wishes/wishes/issues'
 
+// The fake Cline has three apps it knows how to "write". Anything else gets the bill splitter.
+const TEMPLATES: [RegExp, string][] = [
+  [/grocer|recipe|aisle|shopping/i, 'grocery'],
+  [/park|meter|countdown|timer/i, 'parking'],
+  [/bill|split|tab|restaurant/i, 'bill'],
+]
+const pickTemplate = (spec: string) => TEMPLATES.find(([re]) => re.test(spec))?.[1] ?? 'bill'
+
 export async function build(app: App): Promise<string> {
-  console.log(`[cline] building ${app.slug} (fake)`)
+  const tpl = pickTemplate(app.spec ?? app.wish.text)
+  console.log(`[cline] building ${app.slug} (fake, template ${tpl})`)
   await fakeDelay()
   mkdirSync(appDir(app), { recursive: true })
-  const html = readFileSync('template/fake-app.html', 'utf8')
+  const html = readFileSync(`template/apps/${tpl}.html`, 'utf8')
     .replaceAll('{{SPEC}}', app.spec ?? app.wish.text)
-    .replaceAll('{{WISHER}}', app.wish.author)
+    .replaceAll('{{WISHER}}', app.wish.author || 'someone')
     .replaceAll('{{ISSUES_URL}}', ISSUES_URL)
   writeFileSync(appFile(app), html)
   return appFile(app)
+}
+
+// Keeps a copy of the current screenshot as v<N>.png so the board can show before/after.
+export function snapshotVersion(app: App): string | undefined {
+  const src = join(appDir(app), 'screenshot.png')
+  if (!existsSync(src)) return undefined
+  copyFileSync(src, join(appDir(app), `v${app.version}.png`))
+  return `/apps/${app.slug}/v${app.version}.png`
 }
 
 export async function test(app: App): Promise<TestResult> {
@@ -39,6 +56,7 @@ export async function test(app: App): Promise<TestResult> {
     const errors: string[] = []
     page.on('pageerror', (e) => errors.push(e.message))
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
+    page.on('dialog', (d) => d.dismiss().catch(() => {})) // an alert() or confirm() must not hang the test
     const url = pathToFileURL(resolve(file)).href
     await page.goto(url, { waitUntil: 'load', timeout: 15000 })
     await page.waitForTimeout(300)

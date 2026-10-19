@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{SPEC}}</title>
+<style>
+  :root { --bg: #f4f4f6; --card: #ffffff; --ink: #16161a; --ink-2: #5c5c66; --line: #e6e6ea; --accent: #1f8a4c; --accent-soft: #e6f5ec; --danger: #b42318; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  main { max-width: 520px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 26px; letter-spacing: -.02em; margin: 8px 0 4px; }
+  .sub { color: var(--ink-2); margin: 0 0 20px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 12px; }
+  textarea { width: 100%; min-height: 120px; padding: 10px 12px; font: inherit; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); resize: vertical; }
+  textarea:focus, input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+  .row { display: flex; gap: 8px; margin-top: 10px; }
+  input { flex: 1; min-width: 0; padding: 10px 12px; font: inherit; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); }
+  button { padding: 10px 14px; font: inherit; font-weight: 600; border: 0; border-radius: 10px; background: var(--accent); color: #fff; cursor: pointer; }
+  button.ghost { background: var(--accent-soft); color: var(--accent); }
+  .aisle { padding: 10px 0; border-top: 1px solid var(--line); }
+  .aisle:first-child { border-top: 0; padding-top: 0; }
+  .aisle h3 { margin: 0 0 6px; font-size: 14px; color: var(--accent); display: flex; justify-content: space-between; }
+  .aisle h3 span { color: var(--ink-2); font-weight: 500; }
+  .aisle label { display: flex; align-items: center; gap: 10px; padding: 6px 0; cursor: pointer; }
+  .aisle label input { width: 18px; height: 18px; flex: none; accent-color: var(--accent); }
+  .aisle label:has(input:checked) { color: var(--ink-2); text-decoration: line-through; }
+  .empty { color: var(--ink-2); font-size: 14px; }
+  footer { margin-top: 24px; font-size: 13px; color: var(--ink-2); text-align: center; }
+  footer a { color: var(--accent); }
+  footer .changelog { margin: 8px 0 0; font-size: 12px; }
+  footer .changelog span { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Recipe → grocery list, by aisle</h1>
+  <p class="sub">Paste the ingredients. Get a list in the order you walk the store.</p>
+
+  <section>
+    <h2>Ingredients</h2>
+    <form id="recipe">
+      <textarea id="text" placeholder="One per line, like: 2 onions&#10;500g chicken thighs&#10;1 can coconut milk">2 onions
+3 cloves garlic
+500 g chicken thighs
+1 can coconut milk
+1 lime
+fresh cilantro
+jasmine rice
+2 tbsp fish sauce
+1 bag frozen peas
+greek yogurt</textarea>
+      <div class="row"><button type="submit">Sort by aisle</button><button type="button" class="ghost" id="clear">Clear</button></div>
+    </form>
+  </section>
+
+  <section>
+    <h2>Your list</h2>
+    <div id="list"><p class="empty">Nothing yet.</p></div>
+    <div class="row"><button type="button" class="ghost" id="copy">Copy list</button></div>
+  </section>
+
+  <footer>Wished by u/{{WISHER}}, granted by Genie (open source) · report a bug → <a href="{{ISSUES_URL}}">{{ISSUES_URL}}</a></footer>
+</main>
+<script>
+const $ = (id) => document.getElementById(id)
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+// Aisles in the order most stores are laid out. First match wins.
+const AISLES = [
+  ['Produce', /onion|garlic|lime|lemon|cilantro|parsley|basil|tomato|pepper|lettuce|spinach|kale|potato|carrot|celery|ginger|apple|banana|avocado|cucumber|mushroom|scallion|herb|fruit|vegetable|berr/i],
+  ['Bakery', /bread|bun|roll|tortilla|pita|bagel|baguette|naan/i],
+  ['Meat & seafood', /chicken|beef|pork|lamb|turkey|sausage|bacon|shrimp|salmon|fish\b(?! sauce)|tuna|steak|mince|ground/i],
+  ['Dairy & eggs', /milk\b(?!.*coconut)|cheese|butter|yogurt|yoghurt|cream|egg/i],
+  ['Pantry', /rice|pasta|noodle|flour|sugar|oil|vinegar|sauce|can\b|canned|coconut milk|beans|lentil|stock|broth|spice|salt|cumin|paprika|curry|honey|peanut|oats|cereal/i],
+  ['Frozen', /frozen|ice cream|peas/i],
+  ['Drinks', /water|juice|soda|coffee|tea\b|wine|beer/i],
+]
+const aisleOf = (line) => AISLES.find(([, re]) => re.test(line))?.[0] ?? 'Other'
+let groups = []
+function sort() {
+  const lines = $('text').value.split('\n').map((l) => l.trim()).filter(Boolean)
+  const map = new Map()
+  for (const l of lines) { const a = aisleOf(l); if (!map.has(a)) map.set(a, []); map.get(a).push(l) }
+  const order = [...AISLES.map(([a]) => a), 'Other']
+  groups = order.filter((a) => map.has(a)).map((a) => [a, map.get(a)])
+  render()
+}
+function render() {
+  $('list').innerHTML = groups.length
+    ? groups.map(([a, ls]) => `<div class="aisle"><h3>${esc(a)}<span>${ls.length}</span></h3>${ls.map((l) => `<label><input type="checkbox">${esc(l)}</label>`).join('')}</div>`).join('')
+    : '<p class="empty">Nothing yet.</p>'
+}
+$('recipe').onsubmit = (e) => { e.preventDefault(); sort() }
+$('text').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sort() } })
+$('clear').onclick = () => { $('text').value = ''; groups = []; render(); $('text').focus() }
+$('copy').onclick = () => {
+  const text = groups.map(([a, ls]) => `${a}\n${ls.map((l) => `  - ${l}`).join('\n')}`).join('\n')
+  if (text && navigator.clipboard) navigator.clipboard.writeText(text).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => ($('copy').textContent = 'Copy list'), 1200) }).catch(() => {})
+}
+sort()
+</script>
+</body>
+</html>

@@ -1,15 +1,67 @@
-// CLINE — smallest change that fixes one report. FAKE for now.
-// REAL: `cline -y --json -t 120 -P $CLINE_PROVIDER -m $CLINE_MODEL "<fix task>"` in apps/<slug>/, task =
-// "Read CONTRACT.md. The app is index.html. Bug: <text>. Make the smallest change that fixes it. Touch nothing else. Stop."
+// CLINE — smallest change that answers one report. FAKE for now.
+// REAL: `cline -y --json -t 120 -P $CLINE_PROVIDER -m $CLINE_MODEL "<task>"` in apps/<slug>/, task =
+//   bug:     "Read CONTRACT.md. The app is index.html. Bug: <text>. Make the smallest change that fixes it. Touch nothing else. Stop."
+//   feature: "Read CONTRACT.md. The app is index.html. Request: <text>. Add it with the smallest change. Touch nothing else. Stop."
+// The fake knows two requests: "dark mode" (adds a working toggle, dark by default) and the sample
+// app's planted bug (totals not re-rendered after removing a person). Anything else is a no-op.
+// stampChangelog() is REAL and runs after every shipped change, whoever made it.
 import { readFileSync, writeFileSync } from 'node:fs'
-import type { App } from '../lib/types'
+import type { App, Issue } from '../lib/types'
 import { fakeDelay } from '../lib/state'
 import { appFile } from './build'
 
-export async function fix(app: App, report: { text: string }): Promise<void> {
-  console.log(`[cline] fixing ${app.slug}: "${report.text}" (fake)`)
+export async function fix(app: App, report: { text: string; kind?: Issue['kind'] }): Promise<void> {
+  console.log(`[cline] ${report.kind === 'feature' ? 'adding' : 'fixing'} on ${app.slug}: "${report.text}" (fake)`)
   await fakeDelay()
-  // The fake only knows the planted bug: totals not re-rendered after removing a person.
   const html = readFileSync(appFile(app), 'utf8')
-  writeFileSync(appFile(app), html.replace('renderPeople(); renderItems() /*BUG*/', 'render()'))
+  let out = html
+  if (/dark\s*mode|dark\s*theme|night\s*mode/i.test(report.text)) out = addDarkMode(html)
+  else if (/total|remove/i.test(report.text)) out = html.replace(/renderPeople\(\); renderItems\(\)\s*\n(\s*)\}/, 'render()\n$1}')
+  if (out === html) console.log('[cline] (fake) nothing to change for that request')
+  writeFileSync(appFile(app), out)
 }
+
+// Every sample app styles itself through the same CSS variables, so dark mode is one override block,
+// a toggle in the corner, and a few lines to remember the choice. Dark is the default so the change is visible.
+function addDarkMode(html: string): string {
+  if (html.includes('data-genie="theme"')) return html
+  const block = `
+<style data-genie="theme">
+  html[data-theme="dark"] { --bg: #0f1014; --card: #181a21; --ink: #f1f1f4; --ink-2: #a3a6b3; --line: #2a2d38; --accent: #7a9cff; --accent-soft: #1f2744; --danger: #ff8a7a; color-scheme: dark; }
+  html[data-theme="dark"] input, html[data-theme="dark"] textarea { background: var(--card); color: var(--ink); border-color: var(--line); }
+  html[data-theme="dark"] ::placeholder { color: var(--ink-2); }
+  .theme-toggle { position: fixed; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 18px; cursor: pointer; display: grid; place-items: center; padding: 0; z-index: 9; }
+</style>
+<button class="theme-toggle" data-genie="theme" aria-label="Toggle dark mode" title="Toggle dark mode">☾</button>
+<script data-genie="theme">
+(() => {
+  const root = document.documentElement, btn = document.querySelector('button.theme-toggle')
+  let saved = null; try { saved = localStorage.getItem('theme') } catch {}
+  const apply = (dark) => { root.dataset.theme = dark ? 'dark' : 'light'; btn.textContent = dark ? '☀' : '☾'; try { localStorage.setItem('theme', dark ? 'dark' : 'light') } catch {} }
+  apply(saved ? saved === 'dark' : true)
+  btn.addEventListener('click', () => apply(root.dataset.theme !== 'dark'))
+})()
+</script>
+`
+  return html.replace(/<\/body>/i, `${block}</body>`)
+}
+
+// Writes the app's changelog into its footer: "v2 · added dark mode · requested by @user". Real code.
+// Runs before the test so the shipped page is what was tested. The caller records the entry once the test passes.
+export function stampChangelog(app: App, issue: Issue, version: number): NonNullable<App['changelog']>[number] {
+  const who = issue.author ? (issue.author.startsWith('@') || issue.author.startsWith('u/') ? issue.author : `@${issue.author}`) : ''
+  const text = `v${version} · ${issue.kind === 'bug' ? 'fixed' : 'added'} ${issue.title}${who ? ` · requested by ${who}` : ''}`
+  const entry = { version, text, by: issue.author, at: Date.now() }
+  const lines = [...(app.changelog ?? []), entry].map((c) => `<span>${esc(c.text)}</span>`).join('')
+  const html = readFileSync(appFile(app), 'utf8')
+  const cl = `<p class="changelog" data-genie="changelog">${lines}</p>`
+  const out = html.includes('data-genie="changelog"')
+    ? html.replace(/<p class="changelog" data-genie="changelog">.*?<\/p>/s, cl)
+    : /<\/footer>/i.test(html)
+      ? html.replace(/<\/footer>/i, `${cl}</footer>`)
+      : html.replace(/<\/body>/i, `<footer>${cl}</footer></body>`)
+  writeFileSync(appFile(app), out)
+  return entry
+}
+
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)

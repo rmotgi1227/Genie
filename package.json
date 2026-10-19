@@ -9,6 +9,7 @@
   "scripts": {
     "start": "tsx genie.ts",
     "demo": "tsx genie.ts --reset --once",
+    "seed": "tsx genie.ts --reset --seed",
     "check": "tsc --noEmit"
   },
   "devDependencies": {

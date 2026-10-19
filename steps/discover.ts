@@ -101,12 +101,15 @@ export async function discover(): Promise<App[]> {
   dump('discover.grouped', grouped)
 
   const apps: App[] = []
+  const slugs = new Set<string>()
   for (const w of grouped.wishes) {
     if (!w.is_genuine_wish || w.safety !== 'ok' || w.buildability !== 'single_page') continue
     const hit = hits[w.hit_indexes[0] ?? -1]
     if (!hit) continue
     const author = w.wisher_author || authorFromText(hit.excerpts.join(' ')) || ''
     const app = newApp(w.one_line_spec, author, 'reddit', canon(hit.url))
+    if (!app.slug || slugs.has(app.slug)) continue // two groups for the same wish would share a slug and corrupt state
+    slugs.add(app.slug)
     app.spec = w.one_line_spec
     app.wish.text = scrub(hit.title ?? w.one_line_spec, 200).replace(/\s*:\s*r\/\w+\s*$/, '')
     apps.push(app)
@@ -177,6 +180,7 @@ export async function validate(candidates: App[]): Promise<App[]> {
       const { askers, why, prior, existing } = await findAskers(app)
       app.askers = askers
       app.why = why
+      app.spec ??= app.wish.text // an owner's own idea arrives with no spec; the approval text and the launch post need one
       if (!app.wish.author) app.wish.author = askers.find((a) => a.url === canon(app.wish.url))?.author ?? askers[0]?.author ?? 'someone'
       console.log(`[parallel] ${app.slug}: ${uniqueAuthors(askers)} unique askers, prior art ${prior}`)
       if (prior === 'strong_existing_tool') {
@@ -192,8 +196,18 @@ export async function validate(candidates: App[]): Promise<App[]> {
 }
 
 // ── triage ──
-export async function triage(text: string): Promise<{ kind: 'bug' | 'feature' | 'noise'; summary: string }> {
-  if (/doesn'?t|broken|bug|wrong|not work|crash|error|fails?/i.test(text)) return { kind: 'bug', summary: text }
-  if (/add|could you|please make|feature|would be nice|can it/i.test(text)) return { kind: 'feature', summary: text }
-  return { kind: 'noise', summary: text }
+// Deterministic for now (regex). Bugs and small features both go to the owner for a YES; noise is ignored.
+// `title` is the short form for the changelog and the board: "Can you add dark mode?" → "dark mode".
+export async function triage(text: string): Promise<{ kind: 'bug' | 'feature' | 'noise'; summary: string; title: string }> {
+  const summary = text.trim()
+  const title = summary
+    .replace(/^(hey|hi|hello)[,!\s]*/i, '')
+    .replace(/^(can|could|would) (you|it|we) (please )?/i, '')
+    .replace(/^(please )?(add|make|put|support|implement|include)( an?| the| some)? /i, '')
+    .replace(/^(it would be (nice|great|cool) (to have|if (it|you) had))( an?| the)? /i, '')
+    .replace(/[?!.]+$/, '')
+    .trim() || summary
+  if (/doesn'?t|broken|bug|wrong|not work|crash|error|fails?|can'?t /i.test(summary)) return { kind: 'bug', summary, title }
+  if (/add|could you|can you|please make|feature|would be nice|can it|support|option|mode|toggle/i.test(summary)) return { kind: 'feature', summary, title }
+  return { kind: 'noise', summary, title }
 }

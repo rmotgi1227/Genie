@@ -15,6 +15,7 @@ export function reset() {
   state.candidates = []
   state.apps = []
   delete state.pendingApproval
+  delete state.builder
   state.events = []
   delete state.sample
   save()
@@ -24,7 +25,7 @@ export function find(slug: string): App | undefined {
   return state.apps.find((a) => a.slug === slug) ?? state.candidates.find((a) => a.slug === slug)
 }
 
-// The one way anything changes an app. Everyone shares this.
+// The one way anything changes an app's stage. Everyone shares this.
 export function advance(slug: string, stage: Stage, patch: Partial<App> = {}): App {
   const app = find(slug)
   if (!app) throw new Error(`advance: no app ${slug}`)
@@ -36,6 +37,9 @@ export function advance(slug: string, stage: Stage, patch: Partial<App> = {}): A
   console.log(`[genie] ${slug} → ${stage}`)
   return app
 }
+
+export const isLive = (a: App) => a.stage === 'launched' || a.stage === 'maintaining'
+export const liveApps = () => state.apps.filter(isLive)
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -52,3 +56,13 @@ export const slugify = (s: string) =>
 
 export const uniqueAuthors = (askers: { author: string }[]) =>
   new Set(askers.map((a) => a.author.toLowerCase())).size
+
+// Runs async jobs one at a time, in order. Used so only one text to the owner is open at once.
+export function mutex() {
+  let tail: Promise<unknown> = Promise.resolve()
+  return <T>(job: () => Promise<T>): Promise<T> => {
+    const run = tail.then(job, job)
+    tail = run.catch(() => {})
+    return run
+  }
+}

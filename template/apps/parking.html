@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{SPEC}}</title>
+<style>
+  :root { --bg: #f4f4f6; --card: #ffffff; --ink: #16161a; --ink-2: #5c5c66; --line: #e6e6ea; --accent: #d9480f; --accent-soft: #fdebe3; --danger: #b42318; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  main { max-width: 520px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 26px; letter-spacing: -.02em; margin: 8px 0 4px; }
+  .sub { color: var(--ink-2); margin: 0 0 20px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 12px; }
+  form.row, .row { display: flex; gap: 8px; }
+  input { flex: 1; min-width: 0; padding: 10px 12px; font: inherit; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+  button { padding: 10px 14px; font: inherit; font-weight: 600; border: 0; border-radius: 10px; background: var(--accent); color: #fff; cursor: pointer; }
+  button.ghost { background: var(--accent-soft); color: var(--accent); }
+  .quick { display: flex; gap: 6px; margin-top: 10px; }
+  .quick button { flex: 1; padding: 8px 0; font-size: 14px; }
+  .clock { text-align: center; padding: 10px 0 4px; }
+  .clock b { display: block; font-size: 64px; letter-spacing: -.04em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .clock span { display: block; margin-top: 8px; color: var(--ink-2); font-size: 14px; }
+  .clock.low b { color: var(--danger); }
+  .clock.over b { color: var(--danger); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { to { opacity: .3; } }
+  footer { margin-top: 24px; font-size: 13px; color: var(--ink-2); text-align: center; }
+  footer a { color: var(--accent); }
+  footer .changelog { margin: 8px 0 0; font-size: 12px; }
+  footer .changelog span { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Parking meter countdown</h1>
+  <p class="sub">Type the minutes on the meter. It keeps counting even if you close the tab.</p>
+
+  <section>
+    <h2>Meter</h2>
+    <form class="row" id="start"><input id="mins" type="number" inputmode="numeric" min="1" max="720" placeholder="Minutes" value="90"><button type="submit">Start</button></form>
+    <div class="quick"><button type="button" data-add="15">+15 min</button><button type="button" data-add="30">+30 min</button><button type="button" data-add="60">+1 hour</button><button type="button" class="ghost" id="stop">Stop</button></div>
+  </section>
+
+  <section>
+    <h2>Time left</h2>
+    <div class="clock" id="clock"><b>--:--</b><span>Not running</span></div>
+  </section>
+
+  <footer>Wished by u/{{WISHER}}, granted by Genie (open source) · report a bug → <a href="{{ISSUES_URL}}">{{ISSUES_URL}}</a></footer>
+</main>
+<script>
+const $ = (id) => document.getElementById(id)
+const KEY = 'meter-end'
+let end = 0
+try { end = Number(localStorage.getItem(KEY)) || 0 } catch {}
+const saveEnd = () => { try { end ? localStorage.setItem(KEY, String(end)) : localStorage.removeItem(KEY) } catch {} }
+const pad = (n) => String(n).padStart(2, '0')
+function tick() {
+  const el = $('clock'), b = el.querySelector('b'), s = el.querySelector('span')
+  if (!end) { b.textContent = '--:--'; s.textContent = 'Not running'; el.className = 'clock'; return }
+  const left = Math.round((end - Date.now()) / 1000)
+  if (left <= 0) { b.textContent = '00:00'; s.textContent = `Expired ${Math.floor(-left / 60)} min ago`; el.className = 'clock over'; return }
+  b.textContent = `${pad(Math.floor(left / 3600) * 60 + Math.floor((left % 3600) / 60))}:${pad(left % 60)}`
+  s.textContent = `Runs out at ${new Date(end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+  el.className = left <= 300 ? 'clock low' : 'clock'
+}
+$('start').onsubmit = (e) => { e.preventDefault(); const m = parseInt($('mins').value, 10); if (m > 0) { end = Date.now() + m * 60_000; saveEnd(); tick() } }
+$('stop').onclick = () => { end = 0; saveEnd(); tick() }
+document.body.addEventListener('click', (e) => { const add = Number(e.target.dataset?.add); if (add) { end = Math.max(end, Date.now()) + add * 60_000; saveEnd(); tick() } })
+setInterval(tick, 1000)
+tick()
+</script>
+</body>
+</html>
