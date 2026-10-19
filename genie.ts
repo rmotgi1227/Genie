@@ -11,7 +11,7 @@ import type { App, Approval, ApprovalKind, Check, FeedLine, Issue, Report, Stage
 import { state, save, reset, advance, sleep, uniqueAuthors, liveApps, mutex } from './lib/state'
 import { discover, validate, triage, newApp } from './steps/discover'
 import * as fake from './steps/discover.fake'
-import { askApproval, approvalsAreFake } from './steps/askApproval'
+import { askApproval, approvalsAreFake, notify } from './steps/askApproval'
 import { build, test, snapshotVersion } from './steps/build'
 import { launch, publish, pollReports, resolveIssue } from './steps/launch'
 import { fix, stampChangelog } from './steps/fix'
@@ -19,7 +19,7 @@ import { diffLines } from './lib/diff'
 import { appFile } from './steps/build'
 import { scrub, suspicious } from './lib/guard'
 import { routeReply, HELP, HELP_POST, HELP_ISSUE, type Reply } from './lib/reply'
-import { issuesUrl } from './lib/repo'
+import { issuesUrl, repoUrl } from './lib/repo'
 
 const args = new Set(process.argv.slice(2))
 const PORT = Number(process.env.PORT ?? 3000)
@@ -111,7 +111,7 @@ async function approveBuild(initial: App[] = []): Promise<App | null> {
     state.builder = { slug: next.slug }
     advance(next.slug, 'awaiting_approval')
     const n = uniqueAuthors(next.askers)
-    const { r, reply } = await ask(next, 'build', `${n} people want ${next.spec}. ${next.why ?? ''} ${HELP}.`.replace(/\s+/g, ' '), HELP)
+    const { r, reply } = await ask(next, 'build', `${n} ${n === 1 ? 'person wants' : 'people want'} ${next.spec}. ${next.why ?? ''} ${next.wish.url ? `The wish: ${next.wish.url} ` : ''}${HELP}.`.replace(/\s+/g, ' '), HELP)
     if (r !== 'yes') declined.add(next.slug)
     switch (r) {
       case 'yes':
@@ -197,6 +197,10 @@ async function buildAndLaunch(app: App, resumeFrom?: Stage): Promise<boolean> {
   app.version ||= 1
   app.launch.endedAt = Date.now()
   advance(app.slug, 'launched', posted)
+  // The heads-up after launch: the live link for a web tool, the open-source repo first for everything else.
+  const web = !app.kind || app.kind === 'web_page'
+  const links = web ? [`Live: ${app.pagesUrl}`, `Code (MIT): ${repoUrl(app)}`] : [`Open source (MIT): ${repoUrl(app)}`, `Page: ${app.pagesUrl}`]
+  await notify([`Done ✅ ${app.spec ?? app.slug}`, ...links, app.launchUrl ? `Replied to u/${app.wish.author}: ${app.launchUrl}` : ''].filter(Boolean).join('\n'))
   snapshotVersion(app) // v1.png, the "before" for the first upgrade
   advance(app.slug, 'maintaining')
   return true

@@ -49,3 +49,28 @@ export async function askApproval(text: string, image?: string): Promise<string>
     }
   }
 }
+
+// One-way text to the owner (no reply expected), e.g. "it's live, here's the link". Never throws:
+// a failed heads-up must not undo a launch that already happened.
+export async function notify(text: string): Promise<void> {
+  if (transport === 'fake') {
+    console.log(`[photon] → owner: ${text} (fake)`)
+    return
+  }
+  for (let attempt = 1; attempt <= RETRIES; attempt++) {
+    try {
+      messenger ??= createMessenger(transport)
+      const m = await messenger
+      console.log(`[${transport}] → owner: ${text}`)
+      await m.send(text)
+      return
+    } catch (e) {
+      const old = messenger
+      messenger = undefined
+      old?.then((m) => m.stop()).catch(() => {})
+      const wait = Math.min(30_000, 2_000 * 2 ** (attempt - 1))
+      console.log(`[${transport}] notify failed (${(e as Error).message}), retrying in ${wait / 1000}s (${attempt}/${RETRIES})`)
+      await sleep(wait)
+    }
+  }
+}
