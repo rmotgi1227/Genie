@@ -73,7 +73,8 @@ export async function launch(app: App): Promise<{ pagesUrl: string; launchPostId
   const pagesUrl = await publish(app)
   const sub = app.wish.url?.match(/reddit\.com\/r\/([^/]+)/i)?.[1]
   const launchTitle = `Replied to u/${app.wish.author}${sub ? ` on r/${sub}` : ''}`
-  if (!composioEnabled()) {
+  // Never reply in public on a scripted YES: with fake approvals (npm run demo) the reply stays fake even if a key is set.
+  if (!composioEnabled() || approvalsAreFake()) {
     console.log(`[composio] reply to u/${app.wish.author} on ${app.wish.url}: ${pagesUrl} (fake)`)
     await fakeDelay()
     return { pagesUrl, launchPostId: `fake_comment_${app.slug.slice(0, 8)}`, launchTitle, launchUrl: app.wish.url }

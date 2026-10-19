@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import type { App } from '../lib/types'
 import { appFile } from './build'
 import { fakeDelay, sleep } from '../lib/state'
+import { approvalsAreFake } from './askApproval'
 
 const execFileAsync = promisify(execFile)
 
@@ -22,7 +23,8 @@ const DEPLOY_TIMEOUT_MS = 120_000
 const DEPLOY_MAX_BUFFER = 10 * 1024 * 1024
 
 export async function deploy(app: App): Promise<string> {
-  if (!TOKEN) {
+  // Nothing goes public on a scripted YES: with fake approvals (npm run demo) the deploy stays local even if a token is set.
+  if (!TOKEN || approvalsAreFake()) {
     console.log(`[vercel] deploy ${app.slug} (fake)`)
     await fakeDelay()
     return `http://localhost:${PORT}/apps/${app.slug}/`
