@@ -11,6 +11,8 @@ import { tool, composioEnabled } from './composio'
 export const configuredOrg = () => process.env.GITHUB_ORG ?? 'genie-wishes' // read per call, so an org saved from the setup screen works without a restart
 
 let cachedOwner: string | undefined
+let ownerIsOrg = false // true only when GITHUB_ORG is a real org this account can create repos in
+export const isOrgOwner = () => ownerIsOrg
 let resolving: Promise<string> | undefined
 
 async function authenticatedLogin(): Promise<string> {
@@ -33,7 +35,7 @@ export async function resolveOwner(): Promise<string> {
   resolving ??= (async () => {
     const configured = configuredOrg()
     try {
-      if (await canCreateInOrg(configured)) return configured
+      if (await canCreateInOrg(configured)) { ownerIsOrg = true; return configured }
       console.log(`[github] connected account isn't a member of ${configured}, creating repos under its own account instead`)
     } catch (e) {
       console.log(`[github] couldn't confirm access to ${configured} (${(e as Error).message}), creating repos under the connected account instead`)

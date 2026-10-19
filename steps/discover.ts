@@ -15,9 +15,10 @@ import { parallelEnabled, search, respond, obj, str, bool, en, arr, type SearchH
 import { redditPost, redditListing, redditComments, postIdFromUrl, isRequestPost, looksLikeJoke, mapLimit, type RedditPost, type RedditComment } from '../lib/reddit'
 import { scrub } from '../lib/guard'
 import * as fake from './discover.fake'
+import { tool } from '../lib/composio'
 
 const REDDIT = ['reddit.com']
-const TOP_N = Number(process.env.VALIDATE_TOP_N ?? 3)
+const TOP_N = Number(process.env.VALIDATE_TOP_N ?? 6)
 const DAYS_BACK = Number(process.env.DISCOVER_DAYS_BACK ?? 120)
 const REDDIT_CONCURRENCY = 4
 const MAX_DISCOVER_HITS = 80
@@ -238,7 +239,42 @@ type Grouped = {
   }[]
 }
 
+// A seeded wish (SEED_WISH_URL = a real Reddit comment permalink) goes first, ahead of the sweep. It's still a
+// real wish: the comment's own author, text and upvotes are read through Composio, and validate() checks it
+// with Parallel like any other. Used to pick the demo's wish without faking anything.
+const seeded = new Set<string>()
+async function seedWish(): Promise<App | undefined> {
+  const url = process.env.SEED_WISH_URL
+  const id = url?.match(/\/comments\/[a-z0-9]+\/[^/?#]*\/([a-z0-9]+)/i)?.[1]
+  if (!url || !id) return undefined
+  try {
+    const r = await tool<{ things?: { data?: { author?: string; body?: string; score?: number; subreddit?: string } }[] }>('REDDIT_RETRIEVE_SPECIFIC_COMMENT', { id: `t1_${id}` })
+    const c = r?.things?.[0]?.data
+    if (!c?.author || !c.body) throw new Error('comment not found')
+    const quote = scrub(c.body, 300)
+    const app = newApp(process.env.SEED_WISH_SPEC ?? quote, c.author, 'reddit', url)
+    app.spec = process.env.SEED_WISH_SPEC ?? quote
+    app.wish.text = quote
+    app.kind = process.env.SEED_WISH_KIND ?? 'web_page'
+    app.upvotes = c.score ?? 0
+    app.askers = [{ author: c.author, url, quote: scrub(c.body, 160), source: `r/${c.subreddit ?? sub(url)}`, foundAt: Date.now() }]
+    seeded.add(app.slug)
+    console.log(`[composio] seeded wish from u/${c.author}: ${app.spec}`)
+    return app
+  } catch (e) {
+    console.log(`[composio] couldn't read the seeded wish ${url}: ${(e as Error).message}`)
+    return undefined
+  }
+}
+
 export async function discover(): Promise<App[]> {
+  if (!parallelEnabled()) return sweep()
+  const [seed, found] = await Promise.all([seedWish(), sweep().catch(() => [] as App[])])
+  return seed ? [seed, ...found.filter((a) => a.slug !== seed.slug)] : found
+}
+
+
+async function sweep(): Promise<App[]> {
   if (!parallelEnabled()) return fake.discover()
   try {
     console.log('[reddit] gathering wishes: megathreads, subreddit listings, Parallel search')
@@ -445,26 +481,32 @@ async function findAskers(app: App): Promise<{ askers: Asker[]; why: string; pri
 export async function validate(candidates: App[]): Promise<App[]> {
   if (!parallelEnabled()) return fake.validate(candidates)
   const top = candidates.slice(0, TOP_N)
-  console.log(`[parallel] validating ${top.length} of ${candidates.length} wishes`)
-  const out: App[] = []
-  for (const app of top) {
+  console.log(`[parallel] validating ${top.length} of ${candidates.length} wishes at once`)
+  // all at once: the slowest check sets the wait, not the sum of them
+  const checked = await Promise.all(top.map(async (app) => {
     try {
       const { askers, why, prior, existing } = await findAskers(app)
-      app.askers = askers
+      app.askers = askers.length ? askers : app.askers
       app.why = why
       app.spec ??= app.wish.text // an owner's own idea arrives with no spec; the approval text and the launch post need one
       if (!app.wish.author) app.wish.author = askers.find((a) => a.url === canon(app.wish.url))?.author ?? askers[0]?.author ?? 'someone'
-      console.log(`[parallel] ${app.slug}: ${uniqueAuthors(askers)} unique askers, prior art ${prior}`)
+      console.log(`[parallel] ${app.slug}: ${uniqueAuthors(app.askers)} unique askers, prior art ${prior}`)
       if (prior === 'strong_existing_tool') {
         advance(app.slug, 'exists', { existingTool: existing }) // Genie doesn't build clones
-        continue
+        return undefined
       }
-      out.push(app)
+      if (/^\s*not worth/i.test(why ?? '') && !seeded.has(app.slug)) {
+        console.log(`[parallel] ${app.slug}: verdict says not worth building, skipping`)
+        return undefined
+      }
+      return app
     } catch (e) {
       console.log(`[parallel] validate ${app.slug} failed: ${(e as Error).message}`)
+      return seeded.has(app.slug) ? app : undefined
     }
-  }
-  return out.sort((a, b) => uniqueAuthors(b.askers) - uniqueAuthors(a.askers) || (b.upvotes ?? 0) - (a.upvotes ?? 0))
+  }))
+  const out = checked.filter((a): a is App => !!a)
+  return out.sort((a, b) => Number(seeded.has(b.slug)) - Number(seeded.has(a.slug)) || uniqueAuthors(b.askers) - uniqueAuthors(a.askers) || (b.upvotes ?? 0) - (a.upvotes ?? 0))
 }
 
 // ── triage ──

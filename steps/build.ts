@@ -338,8 +338,8 @@ function kindParagraph(app: App): { what: string; extraGuardrails: string } {
     }
   }
   return {
-    what: 'This is a web_page: the whole app is index.html.',
-    extraGuardrails: 'only create or edit index.html — no CDN, no npm packages, no other files;',
+    what: 'This is a web_page: the whole app is index.html. Also write README.md for its open-source repo: one line on what it does, who asked for it, how to use it (it runs in the browser, no install), and that it is MIT licensed.',
+    extraGuardrails: 'only create or edit index.html and README.md — no CDN, no npm packages, no other files;',
   }
 }
 

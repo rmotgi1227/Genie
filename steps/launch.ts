@@ -11,7 +11,7 @@ import type { App, Issue, Report } from '../lib/types'
 import { fakeDelay, sleep, uniqueAuthors } from '../lib/state'
 import { approvalsAreFake } from './askApproval'
 import { tool, composioEnabled } from '../lib/composio'
-import { owner, repoName, repoUrl, resolveOwner, configuredOrg } from '../lib/repo'
+import { owner, repoName, repoUrl, resolveOwner, configuredOrg, isOrgOwner } from '../lib/repo'
 import { appDir } from './build'
 import { postIdFromUrl } from '../lib/reddit'
 import { deploy } from './deploy'
@@ -32,7 +32,7 @@ async function publishFake(app: App): Promise<string> {
 
 async function createRepo(app: App): Promise<void> {
   const who = await resolveOwner()
-  const isOrg = who === configuredOrg()
+  const isOrg = isOrgOwner() // GITHUB_ORG may be a username (no org), so ask what resolveOwner found
   const args = { name: app.slug, private: false, has_issues: true, auto_init: true, license_template: 'mit', description: app.spec ?? app.wish.text }
   try {
     const r = isOrg
