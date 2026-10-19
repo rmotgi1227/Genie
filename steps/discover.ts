@@ -491,14 +491,8 @@ export async function validate(candidates: App[]): Promise<App[]> {
       app.spec ??= app.wish.text // an owner's own idea arrives with no spec; the approval text and the launch post need one
       if (!app.wish.author) app.wish.author = askers.find((a) => a.url === canon(app.wish.url))?.author ?? askers[0]?.author ?? 'someone'
       console.log(`[parallel] ${app.slug}: ${uniqueAuthors(app.askers)} unique askers, prior art ${prior}`)
-      if (prior === 'strong_existing_tool' && !seeded.has(app.slug)) { // a seeded wish was picked on purpose, so it isn't skipped as a clone
-        advance(app.slug, 'exists', { existingTool: existing }) // Genie doesn't build clones
-        return undefined
-      }
-      if (/^\s*not worth/i.test(why ?? '') && !seeded.has(app.slug)) {
-        console.log(`[parallel] ${app.slug}: verdict says not worth building, skipping`)
-        return undefined
-      }
+      // Existing tools don't rule a wish out: an open-source, free, no-signup version is worth building anyway.
+      if (existing?.name) app.existingTool = existing
       return app
     } catch (e) {
       console.log(`[parallel] validate ${app.slug} failed: ${(e as Error).message}`)

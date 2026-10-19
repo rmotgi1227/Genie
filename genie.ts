@@ -111,7 +111,7 @@ async function approveBuild(initial: App[] = []): Promise<App | null> {
     state.builder = { slug: next.slug }
     advance(next.slug, 'awaiting_approval')
     const n = uniqueAuthors(next.askers)
-    const { r, reply } = await ask(next, 'build', `${n} ${n === 1 ? 'person wants' : 'people want'} ${next.spec}. ${next.why ?? ''} ${next.wish.url ? `The wish: ${next.wish.url} ` : ''}${HELP}.`.replace(/\s+/g, ' '), HELP)
+    const { r, reply } = await ask(next, 'build', `${n} ${n === 1 ? 'person wants' : 'people want'} ${next.spec}. ${next.wish.url ? `The wish: ${next.wish.url} ` : ''}${HELP}.`.replace(/\s+/g, ' '), HELP)
     if (r !== 'yes') declined.add(next.slug)
     switch (r) {
       case 'yes':
