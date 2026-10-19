@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Genie UI mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Clickable mockup of the Run Genie flow: Play → setup (one key per step, each skippable) → ready → live board.
+     Same colors and type as board/index.html. Nothing here talks to a server; every "Test" and every text reply is faked. -->
+<style>
+  :root {
+    --bg: #0d0c0a; --panel: #15140f; --panel-2: #1b1a14; --line: #2a2820; --line-2: #3a372c;
+    --text: #efe9dc; --text-2: #bdb6a6; --muted: #837d70; --faint: #55524a;
+    --accent: #f0a53a; --accent-ink: #1a1206; --accent-soft: rgba(240,165,58,.12);
+    --ok: #3fbf6a; --ok-soft: rgba(63,191,106,.12); --sample: #8a8fd8; --sample-soft: rgba(138,143,216,.14); --bad: #ff8a7a;
+    --sans: 'Geist', ui-sans-serif, system-ui, sans-serif; --mono: 'Geist Mono', ui-monospace, Menlo, monospace;
+    --ease: cubic-bezier(.2,.7,.2,1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); }
+  body { color: var(--text); font: 500 16px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); }
+  button { font: inherit; color: inherit; }
+  .hide { display: none !important; }
+  .screen { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px; animation: rise .5s var(--ease) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+  .mono { font-family: var(--mono); }
+  .eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+
+  /* mockup chrome: lets reviewers jump between screens */
+  #jump { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 10px; z-index: 50; font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+  #jump button { background: none; border: 0; padding: 8px 10px; border-radius: 7px; color: var(--muted); cursor: pointer; }
+  #jump button.on { background: var(--accent-soft); color: var(--accent); }
+
+  /* ── 1. landing ── */
+  .wordmark { font-weight: 700; font-size: 56px; letter-spacing: -.045em; line-height: 1; }
+  .lede { max-width: 560px; text-align: center; color: var(--text-2); font-size: 20px; margin: 18px 0 44px; }
+  .play { width: 132px; height: 132px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; display: grid; place-items: center; box-shadow: 0 0 0 0 rgba(240,165,58,.35); animation: halo 2.4s infinite; transition: transform .2s var(--ease); }
+  .play:hover { transform: scale(1.05); }
+  .play svg { width: 46px; height: 46px; margin-left: 8px; }
+  @keyframes halo { 0% { box-shadow: 0 0 0 0 rgba(240,165,58,.35); } 70% { box-shadow: 0 0 0 28px rgba(240,165,58,0); } 100% { box-shadow: 0 0 0 0 rgba(240,165,58,0); } }
+  .play-label { margin-top: 18px; font-weight: 600; font-size: 18px; }
+  .play-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 760px; width: 100%; margin-top: 64px; }
+  .how div { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--panel); }
+  .how b { display: block; font-size: 15px; margin-bottom: 4px; }
+  .how span { color: var(--muted); font-size: 14px; }
+  @media (max-width: 640px) { .how { grid-template-columns: 1fr; } .wordmark { font-size: 44px; } }
+
+  /* ── 2. setup ── */
+  .wizard { width: 100%; max-width: 640px; }
+  .progress { display: flex; gap: 6px; margin-bottom: 28px; }
+  .progress i { flex: 1; height: 4px; border-radius: 2px; background: var(--line); transition: background .3s; }
+  .progress i.done { background: var(--accent); } .progress i.now { background: var(--text-2); }
+  .card { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 28px; }
+  .card h2 { margin: 6px 0 6px; font-size: 28px; letter-spacing: -.03em; line-height: 1.15; }
+  .card .why { color: var(--text-2); margin: 0 0 22px; }
+  label { display: block; font-size: 14px; color: var(--text-2); margin: 16px 0 6px; }
+  input, select { width: 100%; background: var(--bg); border: 1px solid var(--line-2); border-radius: 10px; padding: 12px 14px; color: var(--text); font: 500 15px/1.2 var(--sans); outline: none; }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input.secret { font-family: var(--mono); letter-spacing: .04em; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+  .getkey { font-size: 14px; margin-top: 8px; display: inline-block; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .seg button { text-align: left; background: var(--bg); border: 1px solid var(--line-2); border-radius: 10px; padding: 12px 14px; cursor: pointer; }
+  .seg button b { display: block; font-size: 15px; } .seg button span { color: var(--muted); font-size: 13px; }
+  .seg button.on { border-color: var(--accent); background: var(--accent-soft); }
+  .checklist { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 8px; }
+  .checklist li { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 15px; }
+  .checklist li .box { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--line-2); flex: none; display: grid; place-items: center; cursor: pointer; }
+  .checklist li.ok .box { background: var(--ok); border-color: var(--ok); }
+  .checklist li.ok .box::after { content: '✓'; color: #08140c; font-size: 12px; font-weight: 700; }
+  .checklist li a { margin-left: auto; font-size: 13px; }
+  .status { margin-top: 18px; min-height: 22px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .status.ok { color: var(--ok); } .status.bad { color: var(--bad); } .status.wait { color: var(--muted); }
+  .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-2); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .actions { display: flex; align-items: center; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--line-2); background: var(--panel-2); border-radius: 10px; padding: 11px 16px; font-weight: 600; font-size: 15px; cursor: pointer; }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn.primary:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.ghost { background: none; border-color: transparent; color: var(--muted); }
+  .btn.ghost:hover { color: var(--text-2); }
+  .spacer { flex: 1; }
+  .local { margin-top: 18px; display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: 13px; }
+  .local svg { flex: none; margin-top: 2px; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .back { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0; margin-bottom: 14px; }
+
+  /* ── 3. ready ── */
+  .summary { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 8px; }
+  .summary li { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .summary li b { font-size: 15px; } .summary li span { color: var(--muted); font-size: 13px; display: block; }
+  .pill { margin-left: auto; font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 6px 8px; border-radius: 6px; white-space: nowrap; }
+  .pill.real { color: var(--ok); background: var(--ok-soft); } .pill.sample { color: var(--sample); background: var(--sample-soft); }
+  .summary li button { background: none; border: 0; color: var(--muted); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0 0 0 4px; }
+
+  /* ── 4. board ── */
+  #board { justify-content: flex-start; padding-top: 28px; }
+  .bhead { width: 100%; max-width: 1280px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .bhead .wordmark { font-size: 30px; }
+  .modechip { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 7px 9px; border-radius: 6px; }
+  .stats { display: flex; gap: 24px; margin-left: 12px; }
+  .stats div b { font: 600 22px/1 var(--mono); } .stats div span { margin-left: 6px; font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .live { margin-left: auto; display: flex; gap: 16px; font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .live span { display: inline-flex; align-items: center; gap: 7px; }
+  .live i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: beat 2s infinite; }
+  @keyframes beat { 0% { box-shadow: 0 0 0 0 rgba(63,191,106,.45); } 70% { box-shadow: 0 0 0 7px rgba(63,191,106,0); } 100% { box-shadow: 0 0 0 0 rgba(63,191,106,0); } }
+  .cols { width: 100%; max-width: 1280px; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; margin-top: 24px; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } .live { margin-left: 0; } }
+  .panel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 22px; min-width: 0; }
+  .rail { list-style: none; display: grid; grid-template-columns: repeat(6, 1fr); padding: 0; margin: 18px 0 8px; position: relative; }
+  .rail::before { content: ''; position: absolute; left: 8.3%; right: 8.3%; top: 7px; height: 2px; background: var(--line); }
+  .rail .fill { position: absolute; left: 8.3%; top: 7px; height: 2px; background: var(--accent); width: 0; transition: width .5s var(--ease); }
+  .rail li { position: relative; text-align: center; padding-top: 26px; font-size: 13px; font-weight: 600; color: var(--faint); }
+  .rail li::before { content: ''; position: absolute; top: 0; left: 50%; margin-left: -8px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); border: 2px solid var(--line-2); box-sizing: border-box; transition: all .3s; }
+  .rail li.done { color: var(--text-2); } .rail li.done::before { background: var(--accent); border-color: var(--accent); }
+  .rail li.now { color: var(--accent); } .rail li.now::before { border-color: var(--accent); transform: scale(1.25); }
+  .rail li small { display: block; font: 500 10px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); margin-top: 3px; }
+  @media (max-width: 560px) { .rail li { font-size: 11px; } .rail li small { display: none; } }
+  .focus { min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; padding: 16px 0; }
+  .wish { font-size: 28px; font-weight: 700; letter-spacing: -.03em; line-height: 1.15; max-width: 620px; }
+  .who { color: var(--muted); font-size: 14px; }
+  .askers { display: flex; justify-content: center; }
+  .askers i { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--panel); margin-left: -8px; display: grid; place-items: center; font: 600 13px/1 var(--mono); font-style: normal; color: var(--accent-ink); animation: pop .35s var(--ease) both; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } }
+  .count { font: 600 15px/1 var(--mono); color: var(--accent); }
+  .bubble { max-width: 440px; text-align: left; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 18px 18px 18px 6px; padding: 14px 16px; font-size: 15px; }
+  .bubble small { display: block; font: 600 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .reply { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .reply .btn { padding: 9px 18px; }
+  .reply-note { color: var(--faint); font-size: 12px; }
+  .mine { align-self: center; background: var(--accent); color: var(--accent-ink); font-weight: 600; border-radius: 18px 18px 6px 18px; padding: 8px 16px; }
+  .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; text-align: left; min-width: 280px; }
+  .checks li { display: flex; gap: 10px; align-items: center; color: var(--text-2); font-size: 15px; animation: rise .3s var(--ease) both; }
+  .checks li::before { content: '✓'; width: 18px; height: 18px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); font-size: 11px; display: grid; place-items: center; }
+  .checks li.go::before { content: ''; border: 2px solid var(--line-2); border-top-color: var(--accent); background: none; animation: spin .8s linear infinite; }
+  .shot { width: 210px; height: 300px; border-radius: 18px; border: 1px solid var(--line-2); background: #f6f3ec; color: #2b2720; padding: 16px 14px; text-align: left; font-size: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .shot b { display: block; font-size: 15px; margin-bottom: 10px; }
+  .shot .r { display: flex; justify-content: space-between; border-bottom: 1px solid #e3ddd0; padding: 6px 0; }
+  .shot .total { margin-top: 10px; background: #f0a53a; color: #1a1206; border-radius: 8px; padding: 8px; font-weight: 700; text-align: center; }
+  .shot .ft { margin-top: 24px; color: #8a8273; font-size: 10px; }
+  .links { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .links a { border: 1px solid var(--line-2); border-radius: 999px; padding: 6px 12px; font-size: 13px; color: var(--text-2); text-decoration: none; }
+  .links a b { color: var(--ok); }
+  .lib { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; }
+  .lib li { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 12px; animation: rise .4s var(--ease) both; }
+  .lib li .ic { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; flex: none; }
+  .lib li b { font-size: 15px; display: block; } .lib li span { color: var(--muted); font-size: 13px; }
+  .lib li .pill { margin-left: auto; }
+  .lib li.new { border-color: var(--accent); }
+  .req { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px; }
+  .req p { margin: 8px 0 0; color: var(--text-2); font-size: 15px; }
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .ba div { border-radius: 10px; padding: 12px; font-size: 12px; height: 92px; }
+  .ba .light { background: #f6f3ec; color: #2b2720; } .ba .dark { background: #0f1014; color: #f1f1f4; border: 1px solid #2a2d38; }
+  .ba small { display: block; font: 600 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; opacity: .6; margin-bottom: 6px; }
+  .board-foot { width: 100%; max-width: 1280px; margin-top: 14px; display: flex; gap: 12px; align-items: center; color: var(--faint); font-size: 13px; flex-wrap: wrap; }
+  .board-foot .btn { padding: 8px 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ 1. Landing ═══════════════ -->
+<section class="screen" id="s-landing">
+  <div class="eyebrow">Open source · MIT</div>
+  <div class="wordmark" style="margin-top:14px">Genie</div>
+  <p class="lede">Genie reads Reddit for people wishing a tool existed, builds it, puts it online, and keeps improving it. It texts you before it does anything public.</p>
+  <button class="play" aria-label="Run Genie" onclick="go('setup')">
+    <svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z" fill="currentColor"/></svg>
+  </button>
+  <div class="play-label">Run Genie</div>
+  <div class="play-sub">About 5 minutes to set up, or skip it all and watch a full demo run. No accounts needed.</div>
+  <div class="how">
+    <div><b>1 · Finds a wish</b><span>Searches Reddit and counts how many people want the same thing.</span></div>
+    <div><b>2 · Asks you</b><span>Texts you. Nothing happens until you reply YES.</span></div>
+    <div><b>3 · Builds and ships</b><span>Writes the app, tests it, posts it, and answers requests later.</span></div>
+  </div>
+</section>
+
+<!-- ═══════════════ 2. Setup ═══════════════ -->
+<section class="screen hide" id="s-setup">
+  <div class="wizard">
+    <button class="back" onclick="prev()">← Back</button>
+    <div class="progress" id="progress"></div>
+    <div class="card" id="step"></div>
+    <div class="local">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      <span>Your keys are saved only on this computer and are never sent anywhere except the service they belong to.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 3. Ready ═══════════════ -->
+<section class="screen hide" id="s-ready">
+  <div class="wizard">
+    <button class="back" onclick="go('setup', STEPS.length - 1)">← Back</button>
+    <div class="card">
+      <div class="eyebrow">Ready</div>
+      <h2 id="ready-title">Genie is ready</h2>
+      <p class="why" id="ready-why"></p>
+      <ul class="summary" id="summary"></ul>
+      <div class="actions">
+        <span class="spacer"></span>
+        <button class="btn primary" onclick="startBoard()">Start Genie →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 4. Live board ═══════════════ -->
+<section class="screen hide" id="board">
+  <div class="bhead">
+    <div class="wordmark">Genie</div>
+    <span class="modechip" id="modechip"></span>
+    <div class="stats">
+      <div><b id="st-wishes">0</b><span>wishes heard</span></div>
+      <div><b id="st-live">2</b><span>apps live</span></div>
+      <div><b id="st-up">0</b><span>upgrades</span></div>
+    </div>
+    <div class="live"><span><i></i>Watching Reddit</span><span><i></i>Watching GitHub</span></div>
+  </div>
+  <div class="cols">
+    <div class="panel">
+      <div class="eyebrow">New wish</div>
+      <ul class="rail" id="rail"><span class="fill" id="fill"></span></ul>
+      <div class="focus" id="focus"></div>
+    </div>
+    <div class="panel">
+      <div class="eyebrow">Library</div>
+      <ul class="lib" id="lib"></ul>
+      <div class="req" id="req">
+        <div class="eyebrow">Requests</div>
+        <p style="color:var(--muted)">When someone asks for a change on one of these apps, it shows up here.</p>
+      </div>
+    </div>
+  </div>
+  <div class="board-foot">
+    <button class="btn" id="pause" onclick="togglePause()">❚❚ Pause Genie</button>
+    <button class="btn" onclick="startBoard()">↺ Replay</button>
+    <button class="btn" onclick="go('setup')">Edit setup</button>
+    <span>This is a demo run. When Genie runs for real, these YES/NO questions come as texts to your phone.</span>
+  </div>
+</section>
+
+<nav id="jump" aria-label="Mockup screens">
+  <button data-s="landing" onclick="go('landing')">Landing</button>
+  <button data-s="setup" onclick="go('setup')">Setup</button>
+  <button data-s="ready" onclick="go('ready')">Ready</button>
+  <button data-s="board" onclick="startBoard()">Board</button>
+</nav>
+
+<script>
+// ── setup steps: one key per screen, every one skippable ──
+const STEPS = [
+  { id: 'model', name: 'AI model', role: 'Writes and changes the apps', sponsor: 'Cline',
+    title: 'Which AI should write the apps?',
+    why: 'Genie uses a coding agent called Cline to write each app. Cline needs an AI model and a key from a provider you already use.',
+    fields: `
+      <div class="row">
+        <div><label>Provider</label><select><option>OpenRouter</option><option>Anthropic</option><option>OpenAI</option><option>Groq</option></select></div>
+        <div><label>Model</label><input placeholder="e.g. qwen/qwen-2.5-coder-32b"></div>
+      </div>
+      <label>API key</label><input class="secret" type="password" placeholder="sk-…">
+      <a class="getkey" href="#" onclick="return false">Where do I get a key? →</a>` },
+  { id: 'parallel', name: 'Reddit search', role: 'Finds wishes and counts who asked', sponsor: 'Parallel',
+    title: 'Let Genie search Reddit',
+    why: 'Genie uses a service called Parallel to search Reddit for posts like "I wish there was an app that…", and to find other people asking for the same thing.',
+    fields: `<label>Parallel API key</label><input class="secret" type="password" placeholder="par_…">
+      <a class="getkey" href="#" onclick="return false">Get a free key at parallel.ai →</a>` },
+  { id: 'composio', name: 'Reddit + GitHub', role: 'Posts launches, creates repos, reads requests', sponsor: 'Composio',
+    title: 'Connect Reddit and GitHub',
+    why: 'Genie uses a service called Composio to post on Reddit and to save each app\'s code on GitHub. Connect both accounts in Composio, then paste your key.',
+    fields: `<label>Composio API key</label><input class="secret" type="password" placeholder="ak_…">
+      <ul class="checklist">
+        <li onclick="this.classList.toggle('ok')"><span class="box"></span>Reddit connected in Composio<a href="#" onclick="return false">Open →</a></li>
+        <li onclick="this.classList.toggle('ok')"><span class="box"></span>GitHub connected in Composio<a href="#" onclick="return false">Open →</a></li>
+      </ul>
+      <label>Which GitHub account should hold the apps?</label><input placeholder="genie-wishes"><div class="hint">The username or team name where Genie saves each app\'s code. It must already exist on GitHub.</div>` },
+  { id: 'vercel', name: 'Hosting', role: 'Puts each app online', sponsor: 'Vercel',
+    title: 'Where should the apps live?',
+    why: 'Genie uses Vercel to give every app its own free web address, like bill-splitter.vercel.app.',
+    fields: `<div class="row">
+        <div><label>Vercel key</label><input class="secret" type="password" placeholder="vercel_…"></div>
+        <div><label>Team (optional)</label><input placeholder="your-team"></div>
+      </div>
+      <a class="getkey" href="#" onclick="return false">Where do I get this key? →</a>` },
+  { id: 'photon', name: 'Text approvals', role: 'Asks you before anything goes public', sponsor: 'Photon',
+    title: 'Where should Genie text you?',
+    why: 'Genie uses Photon to text you three times per app: before building, before posting (with a screenshot), and before changing a live app. Reply YES or NO. NO is always safe.',
+    fields: `<div class="seg" id="seg">
+        <button class="on" onclick="pick(this)"><b>This Mac's Messages</b><span>Genie texts you from the Messages app on this Mac</span></button>
+        <button onclick="pick(this)"><b>Photon Cloud</b><span>Works on any computer</span></button>
+      </div>
+      <label>Your phone number</label><input placeholder="+1 555 555 0123">
+      <div id="cloud" class="hide row">
+        <div><label>Photon project ID</label><input></div>
+        <div><label>Photon key</label><input class="secret" type="password"></div>
+      </div>` },
+]
+const choice = {} // step id → 'real' | 'sample'
+let at = 0
+
+function go(screen, step) {
+  document.querySelectorAll('.screen').forEach((s) => s.classList.add('hide'))
+  const el = document.getElementById(screen === 'board' ? 'board' : 's-' + screen)
+  el.classList.remove('hide'); el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''
+  document.querySelectorAll('#jump button').forEach((b) => b.classList.toggle('on', b.dataset.s === screen))
+  if (screen !== 'board') stopBoard()
+  if (screen === 'setup') { at = step ?? 0; renderStep() }
+  if (screen === 'ready') renderReady()
+  window.scrollTo(0, 0)
+}
+
+function renderStep() {
+  const s = STEPS[at]
+  document.getElementById('progress').innerHTML = STEPS.map((_, i) => `<i class="${i < at ? 'done' : i === at ? 'now' : ''}"></i>`).join('')
+  document.getElementById('step').innerHTML = `
+    <div class="eyebrow">Step ${at + 1} of ${STEPS.length} · ${s.name}</div>
+    <h2>${s.title}</h2>
+    <p class="why">${s.why}</p>
+    ${s.fields}
+    ${at === 0 ? '<div class="hint" style="margin-top:16px">No accounts? Skip every step and still watch Genie run.</div>' : ''}
+    <div class="status" id="status"></div>
+    <div class="actions">
+      <button class="btn ghost" onclick="skip()">Skip, use the demo for this</button>
+      <span class="spacer"></span>
+      <button class="btn" onclick="testKey()">Check key</button>
+      <button class="btn primary" id="next" onclick="next()">${at === STEPS.length - 1 ? 'Finish' : 'Continue'}</button>
+    </div>`
+  if (choice[s.id] === 'real') setStatus('ok', 'Connected')
+}
+
+function setStatus(kind, text) {
+  const el = document.getElementById('status')
+  el.className = 'status ' + kind
+  el.innerHTML = kind === 'wait' ? `<span class="spin"></span>${text}` : (kind === 'ok' ? '✓ ' : '') + text
+}
+function testKey() {
+  const empty = [...document.querySelectorAll('#step input.secret')].some((i) => !i.value.trim())
+  if (empty) return setStatus('bad', 'Paste a key first, or skip this step to use the demo.')
+  setStatus('wait', 'Checking…')
+  setTimeout(() => { choice[STEPS[at].id] = 'real'; setStatus('ok', 'Connected') }, 900)
+}
+function next() {
+  const s = STEPS[at]
+  if (!choice[s.id]) {
+    const filled = [...document.querySelectorAll('#step input.secret')].some((i) => i.value.trim())
+    if (!filled) return setStatus('bad', 'Paste a key and press Check key, or skip this step to use the demo.')
+    choice[s.id] = 'real'
+  }
+  advanceStep()
+}
+function skip() { choice[STEPS[at].id] = 'sample'; advanceStep() }
+function advanceStep() { if (at < STEPS.length - 1) { at++; renderStep() } else go('ready') }
+function prev() { if (at > 0) { at--; renderStep() } else go('landing') }
+function pick(btn) {
+  document.querySelectorAll('#seg button').forEach((b) => b.classList.toggle('on', b === btn))
+  document.getElementById('cloud').classList.toggle('hide', btn !== document.querySelectorAll('#seg button')[1])
+}
+
+function renderReady() {
+  const real = STEPS.filter((s) => choice[s.id] === 'real').length
+  document.getElementById('ready-title').textContent = real === STEPS.length ? 'Genie is ready to run for real' : real === 0 ? 'Genie is ready to run as a demo' : 'Genie is ready'
+  document.getElementById('ready-why').textContent = real === STEPS.length
+    ? 'Everything is connected. You\'re always in control: Genie does nothing public until you reply YES, and NO is always safe.'
+    : 'Parts marked "Demo" use pretend data, so you can watch the whole flow without any accounts. Add a key any time to make that part real.'
+  document.getElementById('summary').innerHTML = STEPS.map((s, i) => {
+    const r = choice[s.id] === 'real'
+    return `<li><div><b>${s.name}</b><span>${s.role} · ${s.sponsor}</span></div><span class="pill ${r ? 'real' : 'sample'}">${r ? 'Real' : 'Demo'}</span><button onclick="go('setup', ${i})">${r ? 'Edit' : 'Add key'}</button></li>`
+  }).join('')
+}
+
+// ── live board: a scripted run of one new wish plus one request on an old app ──
+const RAIL = [['Found', 'Parallel'], ['Checked', 'Parallel'], ['You said yes', 'Photon'], ['Built', 'Cline'], ['You said post', 'Photon'], ['Live', 'Composio · Vercel']]
+const COLORS = ['#f0a53a', '#e7c66a', '#d98a5c', '#c7b07a', '#e9b47f', '#b8a06a']
+let timers = [], waiting = null
+function stopBoard() { timers.forEach(clearTimeout); timers = []; waiting = null; if (typeof paused !== 'undefined' && paused) togglePause() }
+let paused = false, held = []
+const later = (ms, fn) => timers.push(setTimeout(() => paused ? held.push(fn) : fn(), ms))
+function togglePause() {
+  paused = !paused
+  $('pause').textContent = paused ? '▶ Resume Genie' : '❚❚ Pause Genie'
+  document.querySelectorAll('.live i').forEach((i) => i.style.animation = paused ? 'none' : '')
+  document.querySelector('.live').style.opacity = paused ? .4 : 1
+  if (!paused) held.splice(0).forEach((fn) => fn())
+}
+const $ = (id) => document.getElementById(id)
+
+function rail(n, now = true) {
+  $('rail').innerHTML = '<span class="fill" id="fill"></span>' + RAIL.map(([l, by], i) => `<li class="${i < n ? 'done' : i === n && now ? 'now' : ''}">${l}<small>${by}</small></li>`).join('')
+  $('fill').style.width = `calc(${(Math.min(n, 5) / 5) * 83.4}%)`
+}
+function focus(html) { const f = $('focus'); f.innerHTML = html; f.style.animation = 'none'; f.offsetHeight; f.style.animation = 'rise .45s var(--ease) both' }
+function ask(text, image, then) {
+  waiting = then
+  focus(`${image ?? ''}<div class="bubble"><small>Genie · text to your phone</small>${text}</div>
+    <div class="reply"><button class="btn primary" onclick="answer('YES')">YES</button><button class="btn" onclick="answer('NO')">NO</button></div>
+    <div class="reply-note">In a real run this comes as a text to your phone.</div>`)
+}
+function answer(r) {
+  const then = waiting; waiting = null
+  if (!then) return
+  if (r === 'NO') { focus(`<div class="mine">NO</div><div class="who">Okay. Genie skips this one and looks for the next wish.</div>`); return }
+  then()
+}
+function library(newApp) {
+  const apps = [
+    { n: 'Bill splitter', s: 'Granted yesterday', i: 'B' },
+    { n: 'Parking meter timer', s: 'Granted yesterday', i: 'P' },
+  ]
+  if (newApp) apps.unshift({ n: 'Recipe to grocery list', s: 'Granted just now', i: 'R', fresh: true })
+  $('lib').innerHTML = apps.map((a) => `<li class="${a.fresh ? 'new' : ''}"><span class="ic">${a.i}</span><div><b>${a.n}</b><span>${a.s}</span></div><span class="pill real">${a.fresh ? 'Just launched' : 'Live'}</span></li>`).join('')
+  $('st-live').textContent = apps.length
+}
+
+function startBoard() {
+  go('board'); stopBoard()
+  const real = STEPS.filter((s) => choice[s.id] === 'real').length
+  const chip = $('modechip')
+  chip.textContent = real === STEPS.length ? 'Live' : 'Demo run'
+  chip.style.cssText = real === STEPS.length ? 'color:var(--ok);background:var(--ok-soft)' : 'color:var(--sample);background:var(--sample-soft)'
+  $('st-wishes').textContent = '0'; $('st-up').textContent = '0'
+  library(false)
+  $('req').innerHTML = `<div class="eyebrow">Requests</div><p style="color:var(--muted)">When someone asks for a change on one of these apps, it shows up here.</p>`
+  rail(0)
+  focus(`<div class="eyebrow">Searching Reddit</div><div class="wish quiet" style="color:var(--muted);font-weight:500">"I wish there was an app that…"</div><span class="spin" style="width:22px;height:22px"></span>`)
+  later(1800, () => {
+    $('st-wishes').textContent = '14'
+    rail(1)
+    focus(`<div class="who">r/Cooking · u/maya_k</div><div class="wish">"I wish there was an app that turns a recipe into a grocery list sorted by aisle"</div><div class="askers" id="askers"></div><div class="count" id="count">1 person asked</div>`)
+    let n = 0
+    const add = () => { if (++n > 6) return; $('askers').insertAdjacentHTML('beforeend', `<i style="background:${COLORS[n - 1]}">${'MJTALR'[n - 1]}</i>`); $('count').textContent = `${n} ${n === 1 ? 'person' : 'different people'} asked`; later(380, add) }
+    later(300, add)
+    later(3200, () => {
+      rail(2)
+      ask('6 different people want <b>a recipe → grocery list sorted by aisle</b>. Nothing good exists. Build it? Reply YES or NO.', null, () => {
+        rail(3)
+        focus(`<div class="mine">YES</div><div class="eyebrow" style="margin-top:6px">Cline is writing the app</div><ul class="checks" id="checks"><li class="go">Writing the app</li></ul>`)
+        const steps = ['Writing the app', 'Loads with no errors', 'Core feature works', 'Footer and viewport in place', 'Screenshot taken']
+        steps.slice(1).forEach((label, i) => later(900 * (i + 1), () => {
+          $('checks').innerHTML = steps.slice(0, i + 2).map((l, j) => `<li class="${j === i + 1 ? 'go' : ''}">${l}</li>`).join('')
+        }))
+        later(900 * steps.length, () => { $('checks').innerHTML = steps.map((l) => `<li>${l}</li>`).join('') })
+        later(900 * steps.length + 300, startRequest)
+        later(900 * steps.length + 1400, () => {
+          rail(4)
+          const shot = `<div class="shot"><b>Grocery list</b><div class="r"><span>🥬 Produce</span><span>4</span></div><div class="r"><span>🥩 Meat</span><span>1</span></div><div class="r"><span>🥫 Pantry</span><span>3</span></div><div class="r"><span>🧀 Dairy</span><span>2</span></div><div class="total">Copy list</div><div class="ft">Wished by u/maya_k, granted by Genie</div></div>`
+          ask("Here's the recipe → grocery list app. Post it to r/GenieGrants? Reply YES or NO.", shot, () => {
+            rail(6, false)
+            focus(`<div class="mine">YES</div><div class="wish" style="font-size:24px">Live, and u/maya_k was tagged</div>
+              <div class="links"><a href="#" onclick="return false"><b>●</b> recipe-grocery-list.vercel.app</a><a href="#" onclick="return false">GitHub repo · MIT license</a><a href="#" onclick="return false">Post on r/GenieGrants</a></div>`)
+            library(true)
+          })
+        })
+      })
+    })
+  })
+}
+
+// Right side: someone asks for dark mode on an old app while the left side is building.
+function startRequest() {
+  if (waiting) return later(1500, startRequest) // one text at a time, like the real approval queue
+  $('req').innerHTML = `<div class="eyebrow">Request · Bill splitter</div><p>"Can you add dark mode?" · @jordan on GitHub</p><div id="reqflow"></div>`
+  later(800, () => {
+    const keep = $('focus').innerHTML
+    ask('Someone asked for <b>dark mode</b> on the bill splitter. Add it? Reply YES or NO.', null, () => {
+      focus(keep)
+      const flow = (t) => { $('reqflow').innerHTML = t }
+      flow(`<p><span class="spin" style="display:inline-block;vertical-align:-2px;margin-right:6px"></span>Cline is adding dark mode</p>`)
+      later(1600, () => flow(`<p><span class="spin" style="display:inline-block;vertical-align:-2px;margin-right:6px"></span>Testing it again</p>`))
+      later(2800, () => flow(`<p><span class="spin" style="display:inline-block;vertical-align:-2px;margin-right:6px"></span>Putting version 2 online</p>`))
+      later(3800, () => {
+        flow(`<div class="ba"><div class="light"><small>Before · v1</small>Bill splitter<br>Alex $24.10<br>Sam $18.40</div><div class="dark"><small>After · v2</small>Bill splitter<br>Alex $24.10<br>Sam $18.40</div></div><p>✓ Version 2 is live · Genie replied on GitHub and closed the request</p>`)
+        $('st-up').textContent = '1'
+        const bill = [...$('lib').children].find((li) => li.textContent.includes('Bill'))
+        if (bill) bill.querySelector('span:not(.ic):not(.pill)').textContent = 'Version 2 · added dark mode'
+      })
+    })
+  })
+}
+
+go('landing')
+</script>
+</body>
+</html>
