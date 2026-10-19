@@ -19,6 +19,7 @@ import { diffLines } from './lib/diff'
 import { appFile } from './steps/build'
 import { scrub, suspicious } from './lib/guard'
 import { routeReply, HELP, HELP_POST, HELP_ISSUE, type Reply } from './lib/reply'
+import { issuesUrl } from './lib/repo'
 
 const args = new Set(process.argv.slice(2))
 const PORT = Number(process.env.PORT ?? 3000)
@@ -73,13 +74,19 @@ const taken = (slug: string) => declined.has(slug) || state.apps.some((b) => b.s
 async function freshQueue(): Promise<App[]> {
   watch.reddit = Date.now()
   delete state.nextDiscoveryAt
-  const found = (await discover()).filter((a) => !taken(a.slug))
+  let found: App[]
+  try {
+    found = (await discover()).filter((a) => !taken(a.slug))
+  } catch (e) {
+    console.log(`[genie] discovery failed, trying again next sweep: ${(e as Error).message}`)
+    return []
+  }
   const now = Date.now()
   for (const a of found) { a.stageAt = { found: now, ...a.stageAt }; if (state.discovery) a.found = { startedAt: state.discovery.startedAt, endedAt: state.discovery.endedAt } }
   state.candidates = found
   save()
   for (const a of found) advance(a.slug, 'validating')
-  const ranked = await validate(found) // mutates the apps in place; wishes that already exist stay in candidates as 'exists'
+  const ranked = await validate(found).catch((e) => { console.log(`[genie] validation failed: ${(e as Error).message}`); return [] as App[] }) // mutates the apps in place; wishes that already exist stay in candidates as 'exists'
   save()
   return ranked.filter((a) => !taken(a.slug)) // queue is a copy; shifting it must not drop wishes from state
 }
@@ -225,7 +232,12 @@ async function buildLoop() {
     }
     state.builder = { slug: app.slug }
     save()
-    if (await buildAndLaunch(app, from)) launchedThisRun++
+    try {
+      if (await buildAndLaunch(app, from)) launchedThisRun++
+    } catch (e) {
+      console.log(`[genie] ${app.slug} failed: ${(e as Error).message}`) // one app fails, the loop keeps going
+      advance(app.slug, 'failed')
+    }
     if (ONCE) return
     state.nextDiscoveryAt = Date.now() + DISCOVER_EVERY_MS
     save()
@@ -303,7 +315,8 @@ async function handleIssue(app: App, issue: Issue) {
 async function maintainLoop() {
   while (true) {
     const apps = liveApps()
-    const reports = [...(apps.length ? await pollReports(apps) : []), ...manualReports.splice(0)]
+    const polled = apps.length ? await pollReports(apps).catch((e) => { console.log(`[genie] polling failed: ${(e as Error).message}`); return [] }) : []
+    const reports = [...polled, ...manualReports.splice(0)]
     watch.github = watch.reddit = Date.now() // issues and launch-post comments are polled together
     for (const rep of reports) {
       const app = state.apps.find((a) => a.slug === rep.slug) ?? apps[0]
@@ -325,7 +338,13 @@ async function maintainLoop() {
         save()
         continue
       }
-      await handleIssue(app, issue)
+      try {
+        await handleIssue(app, issue)
+      } catch (e) {
+        console.log(`[genie] ${issue.id} on ${app.slug} failed: ${(e as Error).message}`) // the live app stays on its last good version
+        Object.assign(issue, { status: 'ignored', resolvedAt: Date.now() })
+        save()
+      }
     }
     if (ONCE && launchedThisRun > 0 && resolvedThisRun > 0) {
       console.log('[genie] --once: a new app is live and an issue is answered, done')
@@ -403,7 +422,8 @@ function startServer() {
         try { const j = JSON.parse(body); slug = j.slug ?? slug; text = j.text ?? text; author = j.author ?? author } catch {}
         if (!slug) slug = [...liveApps()].sort((a, b) => (a.stageAt?.launched ?? 0) - (b.stageAt?.launched ?? 0))[0]?.slug ?? ''
         const id = `manual_${Date.now()}`
-        manualReports.push({ id, slug, source: 'github', text, author, url: `https://github.com/genie-wishes/wishes/issues/${id}` })
+        const app = state.apps.find((a) => a.slug === slug)
+        manualReports.push({ id, slug, source: 'github', text, author, url: app ? issuesUrl(app) : undefined })
         res.writeHead(202).end(`ok ${slug}`)
       })
       return
