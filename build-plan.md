@@ -1,7 +1,7 @@
 # Build plan (Mon Oct 19): seeded demo → real Genie, in 3.5 hours
 
 **11:45 → 3:15** (submissions close 3:15, demos 3:35). Recording starts by 2:20 at the latest. Everything after 2:50 is buffer.
-Goal: Genie really surfs Reddit, really finds a wish, texts us on **Photon**, and on YES **Cline** builds it, then **Composio** creates a **new GitHub repo with an MIT license**, pushes the app, **Vercel** deploys it, and posts it to r/GenieGrants. An issue on that repo → text → YES → Cline ships v2.
+Goal: Genie really surfs Reddit, really finds a wish, texts us on **Photon**, and on YES **Cline** builds it, then **Composio** creates a **new GitHub repo with an MIT license**, pushes the app, **Vercel** deploys it, and Genie **replies to the person who wished for it, on their own Reddit thread**, with the link. An issue on that repo → text → YES → Cline ships v2.
 
 Sponsor map, one line each, so the video can say it:
 | Step | Sponsor | Real call |
@@ -13,7 +13,7 @@ Sponsor map, one line each, so the video can say it:
 | Test it | Playwright | already real (`steps/build.ts` `test()`) |
 | New repo + MIT license + push + issues | **Composio** GitHub | create repo with `license_template: "mit"`, put files, list/comment/close issues |
 | Deploy (v1 and every v{n}) | **Vercel** | `vercel deploy --prod` per app, project = slug → `https://<slug>.vercel.app` |
-| Launch post, tag the wisher | **Composio** Reddit | `REDDIT_CREATE_REDDIT_POST` in r/GenieGrants |
+| Reply to the wisher on their own thread | **Composio** Reddit | `REDDIT_POST_REDDIT_COMMENT` with `thing_id: t3_<post id>` (args confirmed in Composio's Reddit docs) |
 
 ---
 
@@ -52,7 +52,7 @@ vercel deploy apps/<slug> --prod --yes --token $VERCEL_TOKEN --scope $VERCEL_SCO
 1. **Landing**: what Genie does in one sentence, a big **Run Genie** play button, "About 5 minutes to set up, or skip it all and watch a full demo run. No accounts needed."
 2. **Setup, one key per screen**: AI model for Cline → Parallel → Composio (with "Reddit connected / GitHub connected" checks and the GitHub org) → Vercel → Photon (this Mac's Messages or Photon Cloud, plus your phone). Each screen names the job (not the brand), says why it's needed, links to where to get the key, and has **Check key**, **Continue** and **Skip, use the demo for this**. Keys stay in the local `.env`.
 3. **Ready**: each part marked **Real** or **Demo**, with "Add key" to go back. All real adds: "You're always in control: Genie does nothing public until you reply YES, and NO is always safe."
-4. **Live board**: the build loop on the left (the six-step rail, askers popping in, the text approval, the build checks, the screenshot approval, "Live" with the Vercel URL, the MIT repo and the Reddit post) and the library + a dark-mode request on the right, with before/after. Footer: **Pause Genie / Resume**, Replay, Edit setup.
+4. **Live board**: the build loop on the left (the six-step rail, askers popping in, the text approval, the build checks, the screenshot approval, "Live" with the Vercel URL, the MIT repo and Genie's reply on the wisher's thread) and the library + a dark-mode request on the right, with before/after. Footer: **Pause Genie / Resume**, Replay, Edit setup.
 
 The real build of this is **Code F** (Vite + React + Tailwind + 21st.dev components in `web/`, served by `genie.ts`, started with `npm run ui`). Same colors and type as the current board. UX reviewed against the mockup: the copy changes (plain "key" everywhere, "Demo" instead of "Sample", a Pause button, the GitHub account field explained) are in the mockup and Code F.
 
@@ -75,14 +75,14 @@ First paste **Code A** (safety net) so nothing real can crash the board.
 | You | Aryan |
 |---|---|
 | `cp .env.example .env`. Set `APPROVAL_TRANSPORT` (`imessage-cloud` with `PHOTON_PROJECT_ID/SECRET` if you have them, else `imessage-local`, same Photon SDK), `OWNER_PHONE`, `FAKE_REPORTS=` (empty). | `npm i -g cline`, `cline --version`, pick provider + model, set `CLINE_PROVIDER/MODEL/API_KEY`. `PARALLEL_API_KEY`. |
-| `COMPOSIO_API_KEY`. In Composio: connect **Reddit** as `u/GenieGrants`. Make r/GenieGrants (Genie is mod, pinned post). **Post one test post right now**: new accounts get rate limited and filtered, find out at 12:00, not 2:00. | In Composio: connect **GitHub** with access to the `genie-wishes` org (create the org if missing). `GITHUB_TOKEN` too, for the `gh` fallback. |
+| `COMPOSIO_API_KEY`. In Composio: connect **Reddit** as `u/GenieGrants` (bio says it's an AI agent run by you). **Reply to one test thread right now** (your own post in r/test): brand-new accounts get their comments filtered in most subreddits, find out at 12:00, not 2:00. An account with some age and karma works far better. | In Composio: connect **GitHub** with access to the `genie-wishes` org (create the org if missing). `GITHUB_TOKEN` too, for the `gh` fallback. |
 | `vercel login` / `VERCEL_TOKEN` + `VERCEL_SCOPE` in `.env`. Turn Deployment Protection off for production in the team settings. `npm run demo` passes. | `npx playwright install chromium`, `npm run demo` passes. |
 
 Share the `.env` through 1Password so both laptops are identical. The show runs on **your** laptop (it has the phone).
 
 ### 12:05–1:05 · Block 1: four spikes at once (60 min)
 **You**
-1. **Composio Reddit post** (20 min, code: **C** `launch()`): real body for `launch()` in `steps/launch.ts`. `REDDIT_CREATE_REDDIT_POST` → subreddit `GenieGrants`, title `launchTitle`, body: `u/{wisher}, you wished for this.`, the askers' thread links, the Vercel link, the repo link, "Free, open source (MIT), built by an AI agent. Ask for changes on GitHub." Return the real post id + permalink. *Pass:* visible logged out, with the tag.
+1. **Composio Reddit reply** (20 min, code: **C** `launch()`): real body for `launch()` in `steps/launch.ts`. `REDDIT_POST_REDDIT_COMMENT` on the wisher's own thread (`thing_id: t3_<id from app.wish.url>`): "Hey u/{wisher}, you wished for this, so I built it: {link}", how many others asked, the MIT repo, how to ask for changes, and that it's an AI and a human approved it. Return the comment id + permalink. *Pass:* the reply is visible logged out on a test thread.
 2. **Composio Reddit read** (20 min, code: **B** `lib/reddit.ts`): a helper Aryan's `findAskers()` can call: given a thread URL from Parallel, return `{author, title, created}` via Composio's Reddit get-post tool (check the exact slug in Composio's tool list). This is what makes the asker count real when Parallel's excerpts don't carry `u/name`. *Pass:* 5 Parallel URLs in → 5 real usernames out.
 3. **Vercel `deploy()`** (15 min, code: **D**): `steps/deploy.ts` per the Vercel section. Run it on the seeded bill splitter in `apps/`. *Pass:* `https://<slug>.vercel.app` opens logged out on your phone; a second deploy updates the same URL.
 4. **Photon on for real** (10 min): `npm run seed` with the real phone: build YES, post YES with screenshot, issue YES all route. This proves it on today's `.env`.
@@ -106,18 +106,18 @@ Parallel finds a real wish · Cline builds it and it passes the test · Vercel U
 - `npm start` with all keys. Watch for anything that still assumed one shared repo (footer `ISSUES_URL`, board links, `Done ✅` text). Fix in `genie.ts` / board.
 - Turn `DISCOVER_EVERY_MS` down to `60000` for rehearsing.
 - Make sure the board's "Live" card links to the repo and shows "MIT" (a one-line badge is enough).
-- Stretch only if green: Reddit comments on the launch post as a second report source.
+- Stretch only if green: replies to Genie's Reddit comment as a second report source.
 
 ### 1:55 · CHECKPOINT 2: the full real run (10 min)
-`npm start --reset`, nothing fake: **Parallel finds the wish → text → YES → Cline builds → Playwright passes → screenshot text → YES → Composio creates `genie-wishes/<slug>` with an MIT LICENSE, pushes, Vercel deploys it → Composio posts to r/GenieGrants tagging the wisher → Aryan opens "Can you add dark mode?" on that repo → text → YES → Cline v2 → test → pushed → issue commented + closed.**
+`npm start --reset`, nothing fake: **Parallel finds the wish → text → YES → Cline builds → Playwright passes → screenshot text → YES → Composio creates `genie-wishes/<slug>` with an MIT LICENSE, pushes, Vercel deploys it → Composio replies to the wisher on their own Reddit thread → Aryan opens "Can you add dark mode?" on that repo → text → YES → Cline v2 → test → pushed → issue commented + closed.**
 Not green by 2:05 → cut (list below) and record with what's real.
 
 ### 2:05–2:20 · Build the library (15 min)
-Leave `npm start` running, say YES to 1–2 more real wishes so the board opens on a real library of real repos. Meanwhile prep the second window: r/GenieGrants, one asker's thread, the repo page (LICENSE visible), the issue form with the text ready.
+Leave `npm start` running, say YES to 1–2 more real wishes so the board opens on a real library of real repos. Meanwhile prep the second window: the wisher's thread (where the reply lands), one other asker's thread, the repo page (LICENSE visible), the issue form with the text ready.
 
 ### 2:20–2:50 · Record (30 min)
 Shot list, with two edits:
-- Shot 10: after the Reddit post, flip to the **new repo**: point at `LICENSE · MIT`, the commit from Genie, then the live `<slug>.vercel.app` URL on the phone.
+- Shot 10: show Genie's **reply on the wisher's own thread**, then flip to the **new repo**: point at `LICENSE · MIT`, the commit from Genie, then the live `<slug>.vercel.app` URL on the phone.
 - Shot 5: file the dark-mode issue **on that app's own repo**.
 Do one full take. If it's usable, stop. Second take only if the first broke.
 
@@ -128,21 +128,21 @@ Do one full take. If it's usable, stop. Second take only if the first broke.
 ---
 
 ## Biggest risks, ranked
-1. **Reddit account filtered or rate limited.** Test post at 12:00. If it's blocked, post from a personal account via Composio and say so, or show the post as a draft on the board.
+1. **Reddit reply filtered, removed or rate limited.** Replies land in other people's subreddits, so automod and spam filters apply (Composio's docs warn a successful call doesn't guarantee the comment is visible). Test reply at 12:00 and check it logged out. Use an account with some age and karma, reply only on the wisher's own thread (never every asker's), and never retry in a loop: Reddit's RATELIMIT error says how long to wait. If the thread is locked or archived, the app still goes live and the board shows it without a reply. Fallback: reply from a personal account via Composio and say so.
 2. **Cline slow or flaky.** 1–3 min per build is fine on video (the right side fills the time). If it fails the test twice, drop to a smaller model and inline CONTRACT.md in the task.
 3. **Parallel returns no usernames.** That's what the Composio Reddit read helper is for. Count unique authors in code, never trust a model's number.
 4. **Vercel deploy is private or slow.** Deployment Protection must be off for production on these projects; check the URL logged out at Checkpoint 1. Wait for 200 before posting.
 5. **Composio GitHub slugs / file-put quirks.** 20-min cap, then `gh` fallback.
 
 ## Cut order (cut from the top)
-1. Reddit comments as a report source (keep GitHub issues)
+1. Replies to Genie's Reddit comment as a report source (keep GitHub issues)
 2. "Change X" replies on the post approval (keep YES/NO)
 3. The setup + run UI (Code F); the old board still works for the video
 4. Extra library apps (one real seeded app + the live one is enough)
 5. Composio GitHub → `gh` CLI for repo/push (keep MIT + Vercel)
 6. Live Parallel discovery → run it once, lock the found wish, replay it
 
-**Never cut:** real Reddit wish → Photon YES → Cline build + test → Photon screenshot YES → new repo with MIT license, live on Vercel → r/GenieGrants post → one real issue → Photon YES → v2 shipped and issue closed.
+**Never cut:** real Reddit wish → Photon YES → Cline build + test → Photon screenshot YES → new repo with MIT license, live on Vercel → reply on the wisher's thread → one real issue → Photon YES → v2 shipped and issue closed.
 
 ---
 
@@ -231,6 +231,34 @@ Notes:
 How to verify:
 1. `npm run demo` still ends with `--once: a new app is live and an issue is answered, done`.
 2. Break one step on purpose, e.g. `COMPOSIO_API_KEY=bad npm start`. Expected: the log shows `[genie] <slug> failed: …`, the board stays up on http://localhost:3000, and the next sweep still runs.
+
+#### Reply to the wisher, not a subreddit post (genie.ts + board/index.html)
+The launch replies on the wisher's own thread (Code C), so the approval text and the board stop mentioning r/GenieGrants:
+
+```diff
+@@ genie.ts · buildAndLaunch() and the seeded sample approval
+-    const { r, reply } = await ask(app, 'post', `Here's ${app.spec}. Post it to r/GenieGrants? ${HELP_POST}.`, HELP_POST, { image: t.screenshot })
++    const { r, reply } = await ask(app, 'post', `Here's ${app.spec}. Reply to u/${app.wish.author} on Reddit with the link? ${HELP_POST}.`, HELP_POST, { image: t.screenshot })
+@@ seedLibrary()
+-      { kind: 'post', text: `Here's ${app.spec}. Post it to r/GenieGrants? ${HELP_POST}.`, askedAt: at.awaiting_post_approval!, reply: 'yes', repliedAt: at.awaiting_post_approval! + 12_000 },
++      { kind: 'post', text: `Here's ${app.spec}. Reply to u/${app.wish.author} on Reddit with the link? ${HELP_POST}.`, askedAt: at.awaiting_post_approval!, reply: 'yes', repliedAt: at.awaiting_post_approval! + 12_000 },
+```
+
+```diff
+@@ board/index.html
+-        <div id="watching" class="live-line"><i></i><span>Watching Reddit and GitHub issues</span></div>
++        <div id="watching" class="live-line"><i></i><span>Watching Reddit and GitHub issues</span></div>
+@@ renderLeft(): the "Live" line
+-      ? `<a class="post" href="${esc(app.launchUrl ?? '#')}" target="_blank" rel="noopener"><span class="ico">r/</span><span class="b"><span class="h">${esc(app.launchTitle ?? 'Posted')}</span><span class="m"><b>r/GenieGrants</b> · ${app.wish.author ? `tagged u/${esc(app.wish.author)} · ` : ''}${esc(short(app.launchUrl))} · Composio ${dur(app.launch)}</span></span></a>`
++      ? `<a class="post" href="${esc(app.launchUrl || app.wish.url || '#')}" target="_blank" rel="noopener"><span class="ico">r/</span><span class="b"><span class="h">${esc(app.launchUrl ? app.launchTitle ?? 'Replied' : 'Live, no Reddit reply')}</span><span class="m">${esc(short(app.launchUrl || app.wish.url))} · Composio ${dur(app.launch)}</span></span></a>`
+@@ renderQR()
+-  const url = s.sample ? 'https://www.reddit.com/r/GenieGrants/' : live?.pagesUrl ?? live?.launchUrl ?? 'https://www.reddit.com/r/GenieGrants/'
++  const url = live?.pagesUrl ?? live?.launchUrl ?? 'https://github.com/genie-wishes'
+@@
+-  $('#qr').innerHTML = `<div class="code"></div><div class="l"><b>${url.includes('reddit') ? 'r/GenieGrants' : 'Open the app'}</b>${esc(url.replace(/^https?:\/\/(www\.)?/, ''))}</div>`
++  $('#qr').innerHTML = `<div class="code"></div><div class="l"><b>Open the app</b>${esc(url.replace(/^https?:\/\/(www\.)?/, ''))}</div>`
+```
+Also in board/index.html, line ~619: `issue.source === 'reddit' ? 'r/GenieGrants'` → `'Reddit'`.
 
 ## Code B · Discover: real authors via Composio Reddit + short slugs
 
@@ -769,6 +797,7 @@ import { approvalsAreFake } from './askApproval'
 import { tool, composioEnabled } from '../lib/composio'
 import { org, repoName, repoUrl } from '../lib/repo'
 import { appFile, appDir } from './build'
+import { postIdFromUrl } from '../lib/reddit'
 import { deploy } from './deploy'
 
 const PAGES_BASE = process.env.PAGES_BASE ?? 'https://genie-wishes.github.io/wishes'
@@ -889,44 +918,53 @@ async function waitForLive(url: string, capMs = 60_000): Promise<void> {
   console.log(`[launch] ${url} wasn't 200 after ${capMs}ms, posting anyway`)
 }
 
-function launchBody(app: App, pagesUrl: string): string {
-  const asks = app.askers.map((a) => `- u/${a.author}: ${a.url}`).join('\n')
+// The reply goes on the wisher's own thread, not a post in a subreddit we run. Short, human, says it's an AI.
+function replyText(app: App, pagesUrl: string): string {
+  const others = Math.max(0, uniqueAuthors(app.askers) - 1)
   return [
-    `u/${app.wish.author || 'everyone'}, you wished for this.`,
-    asks,
-    pagesUrl,
-    repoUrl(app),
-    'Free, open source (MIT), built by an AI agent. Ask for changes on GitHub.',
+    `Hey u/${app.wish.author}, you wished for this, so I built it: ${pagesUrl}`,
+    others ? `${others} other ${others === 1 ? 'person' : 'people'} on Reddit asked for the same thing, so hopefully it helps them too.` : '',
+    `It's free and open source (MIT): ${repoUrl(app)}. If something's off or you want a feature, open an issue there and I'll make the change.`,
+    `*I'm Genie, an AI agent. A human approved this reply before I posted it.*`,
   ]
     .filter(Boolean)
     .join('\n\n')
 }
 
-// VERIFY arg/response field names (slug itself confirmed)
-async function launchReal(app: App, pagesUrl: string, launchTitle: string) {
+// Reddit's /api/comment answer, as Composio passes it through. VERIFY shape on the first real reply.
+type CommentResult = { json?: { errors?: unknown[]; data?: { things?: { data?: { id?: string; name?: string; permalink?: string } }[] } } }
+
+async function replyReal(app: App, pagesUrl: string, launchTitle: string) {
   await waitForLive(pagesUrl)
-  const r = await tool<{ id?: string; name?: string; permalink?: string; url?: string }>('REDDIT_CREATE_REDDIT_POST', {
-    subreddit: 'GenieGrants',
-    title: launchTitle,
-    kind: 'self',
-    text: launchBody(app, pagesUrl),
-  })
-  const launchPostId = r?.id ?? r?.name ?? `unknown_${Date.now()}`
-  const launchUrl = r?.permalink ? `https://www.reddit.com${r.permalink}` : r?.url ?? `https://www.reddit.com/r/GenieGrants/`
-  console.log(`[composio] posted ${app.slug} to r/GenieGrants: ${launchUrl}`)
-  return { pagesUrl, launchPostId, launchTitle, launchUrl }
+  const postId = app.wish.url ? postIdFromUrl(app.wish.url) : undefined
+  if (!postId) {
+    // the owner's own idea (texted in) has no Reddit thread to answer
+    console.log(`[composio] ${app.slug} has no Reddit thread to reply to, skipping the reply`)
+    return { pagesUrl, launchPostId: '', launchTitle, launchUrl: '' }
+  }
+  try {
+    const r = await tool<CommentResult>('REDDIT_POST_REDDIT_COMMENT', { thing_id: `t3_${postId}`, text: replyText(app, pagesUrl) })
+    const c = r?.json?.data?.things?.[0]?.data
+    const launchUrl = c?.permalink ? `https://www.reddit.com${c.permalink}` : app.wish.url
+    console.log(`[composio] replied to u/${app.wish.author} on ${app.wish.url}: ${launchUrl}`)
+    return { pagesUrl, launchPostId: c?.name ?? c?.id ?? `t3_${postId}`, launchTitle, launchUrl }
+  } catch (e) {
+    // locked/archived thread, RATELIMIT, or automod: the app is already live, so log it and carry on. Never retry in a loop.
+    console.log(`[composio] reply to ${app.wish.url} failed, app stays live: ${(e as Error).message}`)
+    return { pagesUrl, launchPostId: '', launchTitle, launchUrl: '' }
+  }
 }
 
 export async function launch(app: App): Promise<{ pagesUrl: string; launchPostId: string; launchTitle: string; launchUrl: string }> {
   const pagesUrl = await publish(app)
-  const launchTitle = `${uniqueAuthors(app.askers)} people wished for ${app.spec}, so I built it`
+  const sub = app.wish.url?.match(/reddit\.com\/r\/([^/]+)/i)?.[1]
+  const launchTitle = `Replied to u/${app.wish.author}${sub ? ` on r/${sub}` : ''}`
   if (!composioEnabled()) {
-    console.log(`[composio] r/GenieGrants post: "${launchTitle}" · u/${app.wish.author} · ${pagesUrl} (fake)`)
+    console.log(`[composio] reply to u/${app.wish.author} on ${app.wish.url}: ${pagesUrl} (fake)`)
     await fakeDelay()
-    const launchPostId = `fake_post_${app.slug.slice(0, 8)}`
-    return { pagesUrl, launchPostId, launchTitle, launchUrl: `https://www.reddit.com/r/GenieGrants/comments/${launchPostId}/` }
+    return { pagesUrl, launchPostId: `fake_comment_${app.slug.slice(0, 8)}`, launchTitle, launchUrl: app.wish.url }
   }
-  return launchReal(app, pagesUrl, launchTitle)
+  return replyReal(app, pagesUrl, launchTitle)
 }
 
 // ── fake reports ──
@@ -1063,12 +1101,12 @@ With `COMPOSIO_API_KEY` set (not run here, no key available), exercise manually 
 3. Re-run `publish()` against a slug that already has a repo from an earlier rehearsal → `createRepo()`
    catches the 422, logs "already exists, reusing it", and the publish still completes instead of
    throwing.
-4. `launch()` → a real post appears in r/GenieGrants, tagging the wisher, linking the askers' threads,
-   the Vercel URL and the repo URL.
+4. `launch()` → a real reply appears on the wisher's own thread, tagging them, with the Vercel URL and
+   the repo URL, visible logged out. Test it first on a thread you own (r/test).
 5. File an issue by hand on that repo → `pollReports()` picks it up within ~5s, `resolveIssue()`
    leaves a comment and closes it.
 6. Force a failure in `createRepo()` (bad token) → `publish()` throws, `launch()` never calls
-   `REDDIT_CREATE_REDDIT_POST`, and no localhost link reaches Reddit (the Code A try/catch in
+   `REDDIT_POST_REDDIT_COMMENT`, and no localhost link reaches Reddit (the Code A try/catch in
    `genie.ts` around `buildAndLaunch`/`handleIssue` is what turns that throw into "skip this wish",
    not a fallback in this file).
 
@@ -1090,11 +1128,7 @@ against the live API. Check each in the Composio dashboard's tool list (or
 - `GITHUB_LIST_REPOSITORY_ISSUES` in `pollReportsReal()` — assumed to return a plain array of issues
   (GitHub's REST list-issues endpoint includes pull requests in the same list, flagged by a
   `pull_request` field, which is why those are filtered out).
-- `REDDIT_CREATE_REDDIT_POST` in `launchReal()` — slug itself is confirmed (build-plan.md), but
-  the argument names (`subreddit/title/text/kind`) and where the post id + permalink land in the
-  response (`.id`/`.name`, `.permalink`/`.url`) are guesses; the fallback IDs/URLs in the code
-  (`unknown_<ts>`, `/r/GenieGrants/`) only fire if those fields are missing, so a wrong field name
-  degrades gracefully rather than crashing, but confirm it so the real post has a working permalink.
+- `REDDIT_POST_REDDIT_COMMENT` in `replyReal()`: slug and args (`thing_id`, `text`) are confirmed in Composio's Reddit docs; the response is Reddit's raw `/api/comment` answer, so where the comment id and permalink land (`json.data.things[0].data`) is a guess. If it's wrong the reply still posts, and the board just links the wisher's thread instead of the comment.
 - `waitForAutoInit()`'s bounded poll (6 tries, 1.5s apart, ~9s cap) replaces the earlier fixed 4s
   sleep — if auto_init is routinely slower than that in rehearsal, raise the try count rather than
   the delay, so a fast repo still isn't held up.
@@ -2197,7 +2231,7 @@ doesn't. No client-side router — the whole thing is one `<App>` with an in-mem
 (`landing | setup | board`), so there's no deep-linking to get wrong and no router dependency to
 add. This matches the brief's suggested stack exactly; no deviation to justify.
 
-Built and checked in a throwaway copy while drafting; **How to verify** at the bottom has the commands. The clickable mockup of this flow is `mockups/ui.html` (see "Setup + run UI" above).
+Built and checked in a throwaway copy while drafting (`tsc -b` and `vite build` both clean); **How to verify** at the bottom has the commands. The clickable mockup of this flow is `mockups/ui.html` (see "Setup + run UI" above).
 
 ---
 
@@ -2326,6 +2360,8 @@ export default defineConfig({
       '/state': 'http://localhost:3000',
       '/setup': 'http://localhost:3000',
       '/run': 'http://localhost:3000',
+      '/pause': 'http://localhost:3000',
+      '/resume': 'http://localhost:3000',
       '/report': 'http://localhost:3000',
       '/apps': 'http://localhost:3000',
     },
@@ -2542,7 +2578,7 @@ export default function App() {
   if (screen === 'loading') return <div className="flex h-full items-center justify-center text-muted">Loading…</div>
   if (screen === 'landing') return <Landing onPlay={() => setScreen('setup')} />
   if (screen === 'setup') return <SetupWizard onDone={() => setScreen('board')} />
-  return <Board />
+  return <Board onEditSetup={() => setScreen('setup')} />
 }
 ```
 
@@ -2644,6 +2680,7 @@ export type State = {
   discovery?: Span & { queries: string[]; searches: Search[]; hits: Hit[] }
   nextDiscoveryAt?: number
   watch?: { reddit?: number; github?: number }
+  paused?: boolean // true between POST /pause and the next POST /resume
   events?: { t: number; slug: string; stage: Stage }[]
   sample?: boolean
 }
@@ -2725,6 +2762,17 @@ export async function postPing(step: string, fields: Record<string, string>): Pr
   })
   return r.json()
 }
+
+// Pause/resume both loops — they go idle at their next tick, same board stays up, GET /state
+// keeps serving (so the board still shows the last thing Genie was doing, just not moving).
+export async function postPause(): Promise<{ ok: boolean; paused: boolean }> {
+  const r = await fetch('/pause', { method: 'POST' })
+  return r.json()
+}
+export async function postResume(): Promise<{ ok: boolean; paused: boolean }> {
+  const r = await fetch('/resume', { method: 'POST' })
+  return r.json()
+}
 ```
 
 #### web/src/lib/format.ts
@@ -2795,7 +2843,7 @@ export const STEPS = [
   { label: 'Wanted', by: 'Parallel' },
   { label: 'You said yes', by: 'Photon' },
   { label: 'Built', by: 'Cline' },
-  { label: 'You said post', by: 'Photon' },
+  { label: 'You said reply', by: 'Photon' },
   { label: 'Live', by: 'Composio' },
 ]
 ```
@@ -3318,9 +3366,12 @@ export function Landing({ onPlay }: { onPlay: () => void }) {
             own GitHub repo and posts it back. Watch it work.
           </p>
         </div>
-        <ShinyButton onClick={onPlay} aria-label="Run Genie">
-          ▶ Run Genie
-        </ShinyButton>
+        <div className="flex flex-col items-center gap-2">
+          <ShinyButton onClick={onPlay} aria-label="Run Genie">
+            ▶ Run Genie
+          </ShinyButton>
+          <p className="text-sm text-muted">About 5 minutes to set up, or skip it all and watch a full demo run. No accounts needed.</p>
+        </div>
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-mono text-xs uppercase tracking-[.14em] text-faint">
           {SPONSORS.map((s, i) => (
             <span key={s} className="flex items-center gap-3">
@@ -3355,43 +3406,59 @@ export function GetKeyLink({ href, children }: { href: string; children: ReactNo
 ```
 
 #### web/src/screens/setup/WizardShell.tsx
-new file — the per-step chrome: progress bar, title/blurb, Back / Skip / Continue
+new file — the per-step chrome: eyebrow (names the job, not the sponsor), progress bar,
+title/blurb, a status line, Skip / Check key / Continue, and the privacy note
 ```tsx
 import type { ReactNode } from 'react'
 import { Progress } from '../../components/ui/progress'
 import { Button } from '../../components/ui/button'
 
+export type StepStatus = { kind: 'ok' | 'bad' | 'wait'; text: string }
+
 export function WizardShell({
   step,
   total,
+  job,
   title,
   blurb,
   children,
+  status,
+  firstStep,
   onBack,
   onSkip,
+  onCheck,
   onNext,
   nextLabel = 'Continue',
   nextDisabled,
-  nextLoading,
+  checking,
 }: {
   step: number
   total: number
+  job: string
   title: string
   blurb: ReactNode
   children: ReactNode
+  status?: StepStatus
+  firstStep?: boolean
   onBack?: () => void
   onSkip: () => void
+  onCheck: () => void
   onNext: () => void
   nextLabel?: string
   nextDisabled?: boolean
-  nextLoading?: boolean
+  checking?: boolean
 }) {
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col justify-center gap-8 px-6 py-10">
+      {onBack && (
+        <button type="button" onClick={onBack} className="-mb-2 w-fit text-sm text-muted hover:text-ink-2">
+          ← Back
+        </button>
+      )}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between font-mono text-xs uppercase tracking-[.14em] text-muted">
           <span>
-            Step {step} of {total}
+            Step {step} of {total} · {job}
           </span>
           <span>{Math.round((step / total) * 100)}%</span>
         </div>
@@ -3405,22 +3472,35 @@ export function WizardShell({
 
       <div className="flex flex-col gap-4">{children}</div>
 
+      {firstStep && <p className="text-sm text-muted">No accounts? Skip every step and still watch Genie run.</p>}
+
+      {status && (
+        <p className={`text-sm ${status.kind === 'ok' ? 'text-emerald-400' : status.kind === 'bad' ? 'text-red-400' : 'text-muted'}`}>
+          {status.kind === 'ok' ? '✓ ' : ''}
+          {status.text}
+        </p>
+      )}
+
       <div className="flex items-center justify-between gap-3 pt-2">
-        <div>
-          {onBack && (
-            <Button type="button" variant="ghost" onClick={onBack}>
-              Back
-            </Button>
-          )}
-        </div>
+        <Button type="button" variant="ghost" onClick={onSkip}>
+          Skip, use the demo for this
+        </Button>
         <div className="flex items-center gap-3">
-          <Button type="button" variant="ghost" onClick={onSkip}>
-            Skip — use sample data
+          <Button type="button" variant="outline" onClick={onCheck} disabled={checking}>
+            {checking ? 'Checking…' : 'Check key'}
           </Button>
-          <Button type="button" onClick={onNext} disabled={nextDisabled} aria-busy={nextLoading}>
-            {nextLoading ? 'Checking…' : nextLabel}
+          <Button type="button" onClick={onNext} disabled={nextDisabled}>
+            {nextLabel}
           </Button>
         </div>
+      </div>
+
+      <div className="flex items-start gap-2 text-xs text-muted">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="mt-0.5 flex-none">
+          <rect x="4" y="11" width="16" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+        </svg>
+        <span>Your keys are saved only on this computer and are never sent anywhere except the service they belong to.</span>
       </div>
     </div>
   )
@@ -3447,10 +3527,6 @@ export function ProviderStep({ value, onChange }: { value: ProviderFields; onCha
   const preset = PROVIDERS.find((p) => p.value === value.provider) ?? PROVIDERS[0]
   return (
     <>
-      <p className="text-sm text-muted">
-        This is the model <b className="text-ink-2">Cline</b> uses to write and fix each app. Pick a provider, name
-        a model it supports, and paste a key.
-      </p>
       <div className="grid gap-4">
         <div className="grid gap-1.5">
           <Label htmlFor="provider">Provider</Label>
@@ -3514,10 +3590,6 @@ export type ParallelFields = { apiKey: string }
 export function ParallelStep({ value, onChange }: { value: ParallelFields; onChange: (v: ParallelFields) => void }) {
   return (
     <>
-      <p className="text-sm text-muted">
-        <b className="text-ink-2">Parallel</b> surfs Reddit for wishes — searching threads, counting how many
-        people asked, and checking whether something like it already exists.
-      </p>
       <div className="grid gap-1.5">
         <div className="flex items-center justify-between">
           <Label htmlFor="parallelKey">Parallel API key</Label>
@@ -3550,10 +3622,6 @@ export type ComposioFields = { apiKey: string; githubOrg: string }
 export function ComposioStep({ value, onChange }: { value: ComposioFields; onChange: (v: ComposioFields) => void }) {
   return (
     <>
-      <p className="text-sm text-muted">
-        <b className="text-ink-2">Composio</b> is how Genie reads real Reddit threads and pushes the finished app
-        to its own GitHub repo (MIT licensed) once you say yes.
-      </p>
       <div className="grid gap-4">
         <div className="grid gap-1.5">
           <div className="flex items-center justify-between">
@@ -3570,13 +3638,14 @@ export function ComposioStep({ value, onChange }: { value: ComposioFields; onCha
           />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="githubOrg">GitHub org for new app repos</Label>
+          <Label htmlFor="githubOrg">Which GitHub account should hold the apps?</Label>
           <Input
             id="githubOrg"
             placeholder="genie-wishes"
             value={value.githubOrg}
             onChange={(e) => onChange({ ...value, githubOrg: e.target.value })}
           />
+          <p className="text-xs text-muted">The username or team name where Genie saves each app's code. It must already exist on GitHub.</p>
         </div>
         <Alert>
           <AlertTitle>Before you continue</AlertTitle>
@@ -3603,27 +3672,23 @@ export type VercelFields = { token: string; scope: string }
 export function VercelStep({ value, onChange }: { value: VercelFields; onChange: (v: VercelFields) => void }) {
   return (
     <>
-      <p className="text-sm text-muted">
-        <b className="text-ink-2">Vercel</b> deploys each app the moment it passes its test, and every later
-        upgrade to the same URL.
-      </p>
       <div className="grid gap-4">
         <div className="grid gap-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="vercelToken">Vercel token</Label>
-            <GetKeyLink href="https://vercel.com/account/tokens">Get a Vercel token</GetKeyLink>
+            <Label htmlFor="vercelToken">Vercel key</Label>
+            <GetKeyLink href="https://vercel.com/account/tokens">Where do I get this key?</GetKeyLink>
           </div>
           <Input
             id="vercelToken"
             type="password"
             autoComplete="off"
-            placeholder="paste your Vercel token"
+            placeholder="paste your Vercel key"
             value={value.token}
             onChange={(e) => onChange({ ...value, token: e.target.value })}
           />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="vercelScope">Team scope</Label>
+          <Label htmlFor="vercelScope">Team (optional)</Label>
           <Input
             id="vercelScope"
             placeholder="your-team-slug"
@@ -3656,7 +3721,7 @@ export type ApprovalsFields = {
 }
 
 const TRANSPORTS: { value: ApprovalsFields['transport']; label: string; blurb: string }[] = [
-  { value: 'imessage-local', label: 'iMessage (this Mac)', blurb: 'Uses the Messages app already signed in here — no credentials.' },
+  { value: 'imessage-local', label: 'iMessage (this Mac)', blurb: 'Genie texts you from the Messages app on this Mac.' },
   { value: 'imessage-cloud', label: 'Photon Cloud', blurb: 'Texts through Photon so it works from any machine.' },
   { value: 'slack', label: 'Slack', blurb: 'Sends the same yes/no questions to a Slack channel or DM instead of a text.' },
 ]
@@ -3664,10 +3729,6 @@ const TRANSPORTS: { value: ApprovalsFields['transport']; label: string; blurb: s
 export function ApprovalsStep({ value, onChange }: { value: ApprovalsFields; onChange: (v: ApprovalsFields) => void }) {
   return (
     <>
-      <p className="text-sm text-muted">
-        Every build, every post, and every change request gets a single yes/no question to you first —
-        nothing ships without it. <b className="text-ink-2">Photon</b> (or Slack) is how that question reaches you.
-      </p>
       <div className="grid gap-3">
         <Label>Where should Genie ask?</Label>
         <RadioGroup value={value.transport} onValueChange={(transport) => onChange({ ...value, transport: transport as ApprovalsFields['transport'] })}>
@@ -3707,20 +3768,21 @@ export function ApprovalsStep({ value, onChange }: { value: ApprovalsFields; onC
             />
           </div>
           <div className="grid gap-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="photonId">Photon project ID + secret</Label>
-              <GetKeyLink href="https://photon.spectrum-ts.dev/">Get Photon credentials</GetKeyLink>
-            </div>
+            <Label htmlFor="photonId">Photon project ID</Label>
             <Input
               id="photonId"
               placeholder="Project ID"
               value={value.photonProjectId}
               onChange={(e) => onChange({ ...value, photonProjectId: e.target.value })}
             />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="photonKey">Photon key</Label>
             <Input
+              id="photonKey"
               type="password"
               autoComplete="off"
-              placeholder="Project secret"
+              placeholder="paste your Photon key"
               value={value.photonProjectSecret}
               onChange={(e) => onChange({ ...value, photonProjectSecret: e.target.value })}
             />
@@ -3732,14 +3794,14 @@ export function ApprovalsStep({ value, onChange }: { value: ApprovalsFields; onC
         <div className="grid gap-4">
           <div className="grid gap-1.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="slackBotToken">Slack bot token</Label>
+              <Label htmlFor="slackBotToken">Slack bot key</Label>
               <GetKeyLink href="https://api.slack.com/apps">Create a Slack app</GetKeyLink>
             </div>
             <Input
               id="slackBotToken"
               type="password"
               autoComplete="off"
-              placeholder="xoxb-…"
+              placeholder="xoxb-… (paste your Slack bot key)"
               value={value.slackBotToken}
               onChange={(e) => onChange({ ...value, slackBotToken: e.target.value })}
             />
@@ -3770,7 +3832,8 @@ export function ApprovalsStep({ value, onChange }: { value: ApprovalsFields; onC
 ```
 
 #### web/src/screens/setup/ReviewStep.tsx
-new file — the last screen: what's real vs. sample, then "Run Genie" / "Watch the demo instead"
+new file — the last screen: what's real vs. demo, a per-row "Edit"/"Add key" jump back into the
+wizard, the "always in control" line once everything is real, then "Run Genie" / "Watch the demo instead"
 ```tsx
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
@@ -3779,29 +3842,42 @@ export function ReviewStep({
   summary,
   onRunReal,
   onRunDemo,
+  onEdit,
   starting,
 }: {
   summary: { label: string; real: boolean }[]
   onRunReal: () => void
   onRunDemo: () => void
+  onEdit: (i: number) => void
   starting: boolean
 }) {
   const anyReal = summary.some((s) => s.real)
+  const allReal = summary.every((s) => s.real)
   return (
     <>
       <p className="text-sm text-muted">
         {anyReal
-          ? "Here's what's real and what's sample data. Anything sample still runs the full loop, just scripted."
-          : 'No keys yet — Genie will run entirely on sample data, same as `npm run demo`.'}
+          ? "Here's what's real and what's demo data. Anything demo still runs the full loop, just scripted."
+          : 'No keys yet — Genie will run entirely on demo data, same as `npm run demo`.'}
       </p>
       <ul className="grid gap-2">
-        {summary.map((s) => (
+        {summary.map((s, i) => (
           <li key={s.label} className="flex items-center justify-between rounded-md border border-line-2 px-3 py-2 text-sm">
             <span className="text-ink-2">{s.label}</span>
-            <Badge variant={s.real ? 'success' : 'outline'}>{s.real ? 'Live' : 'Sample'}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={s.real ? 'success' : 'outline'}>{s.real ? 'Live' : 'Demo'}</Badge>
+              <button type="button" onClick={() => onEdit(i)} className="text-xs text-muted underline-offset-2 hover:text-ink-2 hover:underline">
+                {s.real ? 'Edit' : 'Add key'}
+              </button>
+            </div>
           </li>
         ))}
       </ul>
+      {allReal && (
+        <p className="text-sm text-ink-2">
+          You're always in control: Genie does nothing public until you reply YES, and NO is always safe.
+        </p>
+      )}
       <div className="flex flex-col gap-2 pt-2">
         <Button onClick={onRunReal} disabled={starting} size="lg">
           {starting ? 'Starting…' : anyReal ? 'Run Genie' : 'Watch the demo'}
@@ -3818,13 +3894,14 @@ export function ReviewStep({
 ```
 
 #### web/src/screens/setup/SetupWizard.tsx
-new file — orchestrates the six steps: owns form state, calls `/setup/ping` then `/setup` per
-step on Continue (never on Skip — an empty key just stays empty, which is what makes the fake
-fallback kick in), and `/run` on the final screen
+new file — orchestrates the six steps: owns form state; "Check key" pings `/setup/ping` without
+saving or advancing, "Continue" saves whatever's filled to `/setup` (an empty field just stays
+empty, which is what makes the demo fallback kick in) and advances without requiring a successful
+ping first; "Skip" advances without saving anything; and `/run` fires from the final screen
 ```tsx
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { WizardShell } from './WizardShell'
+import { WizardShell, type StepStatus } from './WizardShell'
 import { ProviderStep, type ProviderFields } from './ProviderStep'
 import { ParallelStep, type ParallelFields } from './ParallelStep'
 import { ComposioStep, type ComposioFields } from './ComposioStep'
@@ -3866,7 +3943,7 @@ function hasAny(step: StepName, f: Fields): boolean {
   if (step === 'provider') return !!(f.provider.model && f.provider.apiKey)
   if (step === 'parallel') return !!f.parallel.apiKey
   if (step === 'composio') return !!f.composio.apiKey
-  if (step === 'vercel') return !!(f.vercel.token && f.vercel.scope)
+  if (step === 'vercel') return !!f.vercel.token // the team is optional
   if (step === 'approvals') {
     if (f.approvals.transport === 'imessage-local') return !!f.approvals.ownerPhone
     if (f.approvals.transport === 'imessage-cloud') return !!(f.approvals.ownerPhone && f.approvals.photonProjectId && f.approvals.photonProjectSecret)
@@ -3901,55 +3978,76 @@ function toEnvPatch(step: StepName, f: Fields): Record<string, string> {
   }
 }
 
+// The eyebrow names the job ("Step 2 of 5 · Reddit search"), never the sponsor — the sponsor's
+// name only shows up inside the explanation sentence below ("Genie uses a service called Parallel to…").
+const JOBS: Record<StepName, string> = {
+  provider: 'AI model',
+  parallel: 'Reddit search',
+  composio: 'Reddit + GitHub',
+  vercel: 'Hosting',
+  approvals: 'Text approvals',
+  review: 'Review',
+}
 const TITLES: Record<StepName, string> = {
-  provider: 'Pick a model for Cline',
-  parallel: 'Connect Parallel',
-  composio: 'Connect Composio',
-  vercel: 'Connect Vercel',
-  approvals: 'How should Genie ask you?',
+  provider: 'Which AI should write the apps?',
+  parallel: 'Let Genie search Reddit',
+  composio: 'Connect Reddit and GitHub',
+  vercel: 'Where should the apps live?',
+  approvals: 'Where should Genie text you?',
   review: "You're set",
 }
 const BLURBS: Record<StepName, string> = {
-  provider: 'Cline writes and fixes every app with this model.',
-  parallel: 'Finds real wishes on Reddit and checks if they already exist.',
-  composio: 'Reads Reddit threads for real usernames, then ships the app to its own GitHub repo.',
-  vercel: 'Deploys each app, and every upgrade, to a live URL.',
-  approvals: 'One yes/no question per step, nothing ships without it.',
+  provider: 'Genie uses a coding agent called Cline to write each app. Cline needs an AI model and a key from a provider you already use.',
+  parallel: 'Genie uses a service called Parallel to search Reddit for posts like "I wish there was an app that…", and to find other people asking for the same thing.',
+  composio: "Genie uses a service called Composio to post on Reddit and to save each app's code on GitHub. Connect both accounts in Composio, then paste your key.",
+  vercel: 'Genie uses Vercel to give every app its own free web address, like bill-splitter.vercel.app.',
+  approvals: 'Genie uses Photon to text you three times per app: before building, before posting (with a screenshot), and before changing a live app. Reply YES or NO. NO is always safe.',
   review: 'Review what you set, then start Genie.',
 }
 
 export function SetupWizard({ onDone }: { onDone: () => void }) {
   const [i, setI] = useState(0)
   const [fields, setFields] = useState<Fields>(EMPTY)
+  const [status, setStatus] = useState<StepStatus | undefined>()
   const [checking, setChecking] = useState(false)
   const [starting, setStarting] = useState(false)
   const step = STEP_NAMES[i]
 
-  async function saveStep(step: StepName) {
-    if (!hasAny(step, fields)) return // nothing entered: leave the key empty, the fake runs
+  function goTo(n: number) {
+    setStatus(undefined)
+    setI(Math.max(0, Math.min(n, STEP_NAMES.length - 1)))
+  }
+
+  // "Check key" — an explicit, optional ping. Never blocks Continue; just reassures.
+  async function checkKey() {
+    if (!hasAny(step, fields)) return setStatus({ kind: 'bad', text: 'Paste a key first, or skip this step to use the demo.' })
     setChecking(true)
+    setStatus({ kind: 'wait', text: 'Checking…' })
     try {
-      const ping = await postPing(step, toEnvPatch(step, fields))
-      if (!ping.ok) {
-        toast.error(ping.error ?? `Couldn't verify that key`, { description: 'You can still continue — Genie will fall back to sample data for this step.' })
-      } else {
-        toast.success('Looks good')
-      }
-      await postSetup({ [step]: toEnvPatch(step, fields) })
+      const r = await postPing(step, toEnvPatch(step, fields))
+      setStatus(r.ok ? { kind: 'ok', text: 'Connected' } : { kind: 'bad', text: r.error ?? "Couldn't verify that key." })
     } catch {
-      toast.error('Could not reach the local Genie server')
+      setStatus({ kind: 'bad', text: 'Could not reach the local Genie server.' })
     } finally {
       setChecking(false)
     }
   }
 
+  // Continue — saves whatever's filled (a blank field just stays blank, which is what makes the
+  // demo fallback kick in for that step) and moves on. Doesn't require a successful "Check key" first.
   async function next() {
-    await saveStep(step)
-    setI((n) => Math.min(n + 1, STEP_NAMES.length - 1))
+    if (!hasAny(step, fields)) return setStatus({ kind: 'bad', text: 'Paste a key and press Check key, or skip this step to use the demo.' })
+    try {
+      await postSetup({ [step]: toEnvPatch(step, fields) })
+    } catch {
+      toast.error('Could not reach the local Genie server')
+      return
+    }
+    goTo(i + 1)
   }
 
   function skip() {
-    setI((n) => Math.min(n + 1, STEP_NAMES.length - 1))
+    goTo(i + 1)
   }
 
   async function run(mode: 'demo' | 'real') {
@@ -3965,7 +4063,7 @@ export function SetupWizard({ onDone }: { onDone: () => void }) {
 
   if (step === 'review') {
     const summary = STEP_NAMES.filter((s) => s !== 'review').map((s) => ({
-      label: TITLES[s],
+      label: JOBS[s],
       real: hasAny(s, fields),
     }))
     return (
@@ -3974,7 +4072,7 @@ export function SetupWizard({ onDone }: { onDone: () => void }) {
           <h2 className="text-2xl font-bold tracking-tight">{TITLES.review}</h2>
           <p className="text-sm text-ink-2">{BLURBS.review}</p>
         </div>
-        <ReviewStep summary={summary} starting={starting} onRunReal={() => run('real')} onRunDemo={() => run('demo')} />
+        <ReviewStep summary={summary} starting={starting} onRunReal={() => run('real')} onRunDemo={() => run('demo')} onEdit={(n) => goTo(n)} />
       </div>
     )
   }
@@ -3983,12 +4081,16 @@ export function SetupWizard({ onDone }: { onDone: () => void }) {
     <WizardShell
       step={i + 1}
       total={STEP_NAMES.length}
+      job={JOBS[step]}
       title={TITLES[step]}
       blurb={BLURBS[step]}
-      onBack={i > 0 ? () => setI((n) => n - 1) : undefined}
+      status={status}
+      firstStep={i === 0}
+      onBack={i > 0 ? () => goTo(i - 1) : undefined}
       onSkip={skip}
+      onCheck={checkKey}
       onNext={next}
-      nextLoading={checking}
+      checking={checking}
     >
       {step === 'provider' && <ProviderStep value={fields.provider} onChange={(provider) => setFields((f) => ({ ...f, provider }))} />}
       {step === 'parallel' && <ParallelStep value={fields.parallel} onChange={(parallel) => setFields((f) => ({ ...f, parallel }))} />}
@@ -4076,7 +4178,7 @@ export function Header({ s, focusApp }: { s: State; focusApp: App | null }) {
     <header className="flex h-12 flex-none items-center gap-5">
       <div className="text-3xl font-bold tracking-tight">Genie</div>
       {s.sample && (
-        <span className="rounded-md border border-line-2 px-2.5 py-2 font-mono text-xs uppercase tracking-[.14em] text-muted">Sample</span>
+        <span className="rounded-md border border-line-2 px-2.5 py-2 font-mono text-xs uppercase tracking-[.14em] text-muted">Demo</span>
       )}
       <div className="ml-10 flex gap-9">
         {[
@@ -4098,7 +4200,7 @@ export function Header({ s, focusApp }: { s: State; focusApp: App | null }) {
 ```
 
 #### web/src/screens/board/Rail.tsx
-new file — the 6-step progress rail (Found → Wanted → You said yes → Built → You said post → Live)
+new file — the 6-step progress rail (Found → Wanted → You said yes → Built → You said reply → Live)
 ```tsx
 import { cn } from '../../lib/utils'
 import { AT, STEPS, dur, uniq } from '../../lib/format'
@@ -4554,20 +4656,19 @@ export function WishPanel({ s, app }: { s: State; app: App | null }) {
             <div className="flex flex-col gap-1.5">
               <div className="font-mono text-xs uppercase tracking-[.14em] text-muted">
                 Genie built this{app.wish.author ? ` for u/${app.wish.author}` : ''}
-                {stage !== 'launched' && stage !== 'maintaining' ? ' · not posted yet' : ''}
+                {stage !== 'launched' && stage !== 'maintaining' ? ' · not shared yet' : ''}
                 {app.build?.endedAt ? ` · Cline ${dur(app.build)}` : ''}
               </div>
               <div className="text-3xl font-bold tracking-tight">{app.spec ?? app.wish.text}</div>
             </div>
             <AppPreview app={app} height={stage === 'awaiting_post_approval' ? 380 : 520} />
             {(stage === 'launched' || stage === 'maintaining') && (
-              <a href={app.launchUrl ?? '#'} target="_blank" rel="noopener noreferrer" className="flex w-[760px] items-center gap-4 rounded-xl border border-accent bg-accent/10 px-4 py-3 text-left">
+              <a href={app.launchUrl || app.wish.url || '#'} target="_blank" rel="noopener noreferrer" className="flex w-[760px] items-center gap-4 rounded-xl border border-accent bg-accent/10 px-4 py-3 text-left">
                 <span className="grid h-9 w-9 flex-none place-items-center rounded-full bg-[#ff4500] font-mono text-[13px] font-bold text-white">r/</span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[17px] font-semibold">{app.launchTitle ?? 'Posted'}</span>
+                  <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[17px] font-semibold">{app.launchUrl ? app.launchTitle ?? 'Replied on Reddit' : 'Live, no Reddit reply'}</span>
                   <span className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-muted">
-                    <b className="font-semibold text-ink-2">r/GenieGrants</b>
-                    {app.wish.author ? ` · tagged u/${app.wish.author}` : ''} · {short(app.launchUrl)} · Composio {dur(app.launch)}
+                    {short(app.launchUrl || app.wish.url)} · Composio {dur(app.launch)}
                   </span>
                 </span>
               </a>
@@ -4584,11 +4685,21 @@ export function WishPanel({ s, app }: { s: State; app: App | null }) {
 ```
 
 #### web/src/screens/board/LibraryList.tsx
-new file — right side, the library rows (name · version · Live / Upgrading / Just launched)
+new file — right side, the library rows (name · subtitle · version · Live / Upgrading / Just
+launched); the subtitle reads "Granted <when>" until the first upgrade ships, then becomes the
+changelog entry itself ("Version 2 · added dark mode")
 ```tsx
 import { cn } from '../../lib/utils'
-import { LIVE, OPEN_ISSUE, name } from '../../lib/format'
+import { LIVE, OPEN_ISSUE, ago, name } from '../../lib/format'
 import type { App } from '../../types'
+
+// "Granted yesterday" until the first upgrade ships, then "Version 2 · added dark mode" — the
+// changelog entry replaces the grant date entirely, same as the reviewed mockup's library rows.
+function subtitle(a: App): string {
+  const last = a.changelog?.at(-1)
+  if (last) return `Version ${last.version} · ${last.text}`
+  return `Granted ${ago(a.stageAt?.launched) || 'just now'}`
+}
 
 export function LibraryList({ apps }: { apps: App[] }) {
   const live = [...apps].filter(LIVE).sort((a, b) => (a.stageAt?.launched ?? 0) - (b.stageAt?.launched ?? 0))
@@ -4611,11 +4722,14 @@ export function LibraryList({ apps }: { apps: App[] }) {
             <li
               key={a.slug}
               className={cn(
-                'relative flex h-[42px] items-center gap-3.5 overflow-hidden rounded-xl border border-line bg-panel px-4',
+                'relative flex items-center gap-3.5 overflow-hidden rounded-xl border border-line bg-panel px-4 py-2.5',
                 open && 'border-accent',
               )}
             >
-              <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-lg font-semibold tracking-tight">{name(a)}</span>
+              <div className="min-w-0 flex-1">
+                <div className="overflow-hidden text-ellipsis whitespace-nowrap text-lg font-semibold tracking-tight">{name(a)}</div>
+                <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-muted">{subtitle(a)}</div>
+              </div>
               <span className={cn('rounded-md border border-line-2 px-1.5 py-1 font-mono text-xs font-semibold tracking-[.08em] text-muted', a.version > 1 && 'border-accent bg-accent text-accent-ink')}>
                 v{a.version}
               </span>
@@ -4653,7 +4767,7 @@ export function RequestCard({ app, issue }: { app: App; issue: Issue }) {
   const st = issue.status
   const working = ['awaiting_approval', 'fixing', 'testing', 'shipping'].includes(st)
   const num = issue.url?.match(/issues\/(\d+)/)?.[1]
-  const where = issue.source === 'github' ? 'GitHub' : issue.source === 'reddit' ? 'r/GenieGrants' : 'iMessage'
+  const where = issue.source === 'github' ? 'GitHub' : issue.source === 'reddit' ? 'Reddit' : 'iMessage'
   const who = issue.author ? `${issue.source === 'reddit' ? 'u/' : '@'}${issue.author.replace(/^@|^u\//, '')}` : ''
   const x = approvalOf(app, 'issue', issue.id)
   const verb = issue.kind === 'bug' ? 'fixing' : 'adding'
@@ -4710,7 +4824,7 @@ export function RequestCard({ app, issue }: { app: App; issue: Issue }) {
       {st === 'shipping' && (
         <div className="relative flex items-center gap-3.5 overflow-hidden rounded-xl border border-line bg-panel px-4 py-3">
           <span className="h-[22px] w-[22px] flex-none rounded-md border-2 border-accent" />
-          <span>Shipping v{app.version}</span>
+          <span>Putting version {app.version} online</span>
           <span className="ml-auto font-mono text-[11px] uppercase tracking-[.14em] text-muted">GitHub · {dur(issue.publish)}</span>
         </div>
       )}
@@ -4723,7 +4837,7 @@ export function RequestCard({ app, issue }: { app: App; issue: Issue }) {
           className={`flex flex-col gap-1.5 rounded-xl border px-4 py-3 ${st === 'fixed' ? 'border-accent bg-accent/10' : 'border-line-2 bg-panel'}`}
         >
           <div className="flex flex-wrap items-center gap-2.5">
-            {st === 'fixed' && <span className="rounded bg-accent px-1.5 py-1 font-mono text-xs font-semibold text-accent-ink">v{issue.version}</span>}
+            {st === 'fixed' && <span className="rounded bg-accent px-1.5 py-1 font-mono text-xs font-semibold text-accent-ink">Version {issue.version} is live</span>}
             <span className="font-mono text-[11px] uppercase tracking-[.14em] text-muted">
               <b className="font-semibold text-ink-2">Genie replied</b> on {where}
               {issue.closedAt ? ' · issue closed' : ''}
@@ -4787,7 +4901,8 @@ export function Footer({ s, app }: { s: State; app: App | null }) {
 ```
 
 #### web/src/screens/board/Board.tsx
-new file — assembles Header / WishPanel / LibraryList+RequestCard / Footer, polling `GET /state`
+new file — assembles Header / WishPanel / LibraryList+RequestCard / Footer / BoardFooterActions,
+polling `GET /state`
 ```tsx
 import { useGenieState } from '../../hooks/useGenieState'
 import { building, request } from '../../lib/derive'
@@ -4797,11 +4912,12 @@ import { WishPanel } from './WishPanel'
 import { LibraryList } from './LibraryList'
 import { RequestCard } from './RequestCard'
 import { Footer } from './Footer'
+import { BoardFooterActions } from './BoardFooterActions'
 
 // The whole board: left is the wish Genie is building right now, right is the library of live
 // apps plus whichever report it's working through. No logs, no code, no "API" — same rule the
 // old board/index.html followed, just rebuilt as components polling GET /state every second.
-export function Board() {
+export function Board({ onEditSetup }: { onEditSetup: () => void }) {
   const s = useGenieState(true)
   if (!s) return <div className="flex h-full items-center justify-center text-muted">Connecting to Genie…</div>
 
@@ -4823,7 +4939,7 @@ export function Board() {
             ) : (
               <div className="m-auto flex items-center gap-3.5 text-lg text-muted">
                 <i className="h-2.5 w-2.5 animate-pulse-dot rounded-full bg-accent" />
-                Watching GitHub issues and r/GenieGrants
+                Watching Reddit and GitHub issues
                 {focus && <span className="text-faint">· {focus.spec ?? focus.slug} running</span>}
               </div>
             )}
@@ -4831,6 +4947,43 @@ export function Board() {
         </section>
       </div>
       <Footer s={s} app={app} />
+      <BoardFooterActions paused={!!s.paused} sample={!!s.sample} onEditSetup={onEditSetup} />
+    </div>
+  )
+}
+```
+
+#### web/src/screens/board/BoardFooterActions.tsx
+new file — Pause Genie / Resume Genie (real `POST /pause` / `POST /resume`), Edit setup (jumps
+back to the wizard), and the demo-mode note
+```tsx
+import { useState } from 'react'
+import { Button } from '../../components/ui/button'
+import { postPause, postResume } from '../../lib/api'
+
+export function BoardFooterActions({ paused, sample, onEditSetup }: { paused: boolean; sample: boolean; onEditSetup: () => void }) {
+  const [busy, setBusy] = useState(false)
+
+  async function toggle() {
+    setBusy(true)
+    try {
+      await (paused ? postResume() : postPause())
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-none flex-wrap items-center gap-3 pt-3 text-sm text-faint">
+      <Button type="button" variant="outline" size="sm" onClick={toggle} disabled={busy}>
+        {paused ? '▶ Resume Genie' : '❚❚ Pause Genie'}
+      </Button>
+      <Button type="button" variant="ghost" size="sm" onClick={onEditSetup}>
+        Edit setup
+      </Button>
+      {sample && (
+        <span>This is a demo run. When Genie runs for real, these YES/NO questions come as texts to your phone.</span>
+      )}
     </div>
   )
 }
@@ -4966,7 +5119,7 @@ async function pingComposio(apiKey?: string): Promise<{ ok: boolean; error?: str
 }
 
 async function pingVercel(token?: string, scope?: string): Promise<{ ok: boolean; error?: string }> {
-  if (!token) return { ok: false, error: 'missing token' }
+  if (!token) return { ok: false, error: 'Paste a key first.' }
   const r = await timeoutFetch('https://api.vercel.com/v2/user', { headers: { authorization: `Bearer ${token}` } })
   if (!r.ok) return { ok: false, error: `Vercel said ${r.status}` }
   if (scope) {
@@ -4978,7 +5131,7 @@ async function pingVercel(token?: string, scope?: string): Promise<{ ok: boolean
 
 async function pingApprovals(fields: Record<string, string>): Promise<{ ok: boolean; error?: string }> {
   if (fields.APPROVAL_TRANSPORT === 'slack') {
-    if (!fields.SLACK_BOT_TOKEN) return { ok: false, error: 'missing bot token' }
+    if (!fields.SLACK_BOT_TOKEN) return { ok: false, error: 'Paste a key first.' }
     const r = await timeoutFetch('https://slack.com/api/auth.test', { method: 'POST', headers: { authorization: `Bearer ${fields.SLACK_BOT_TOKEN}` } })
     const j = (await r.json().catch(() => ({ ok: false }))) as { ok: boolean; error?: string }
     return j.ok ? { ok: true } : { ok: false, error: j.error ?? 'auth.test failed' }
@@ -5015,9 +5168,10 @@ export async function pingStep(step: string, fields: Record<string, string>): Pr
 ```
 
 #### genie.ts
-patch — composes cleanly with the Code A safety-net patch (see "Compose
-order" below). Adds the `--idle` boot mode, `GET/POST /setup`, `POST /setup/ping`, `POST /run`, and
-switches the root static route from `board/` to the built `web/dist/`.
+patch — composes cleanly with the safety-net patch in Code A (see "Compose
+order" below). Adds the `--idle` boot mode, `GET/POST /setup`, `POST /setup/ping`, `POST /run`,
+`POST /pause` / `POST /resume`, and switches the root static route from `board/` to the built
+`web/dist/`.
 ```diff
 @@ imports (apply after Code A's `import { issuesUrl } from './lib/repo'` line)
  import { routeReply, HELP, HELP_POST, HELP_ISSUE, type Reply } from './lib/reply'
@@ -5035,6 +5189,29 @@ switches the root static route from `board/` to the built `web/dist/`.
 +// `npm start` / `npm run demo` / `npm run seed` never do, so their behaviour below is unchanged.
 +const IDLE = args.has('--idle')
 
+@@ const manualReports: Report[] = []  (unchanged, add this right after it)
++// Pause/resume: both loops check this once per iteration (not mid-step — a build or a change in
++// flight always finishes) and GET /state reports it so the board's button matches reality.
++let paused = false
++const pauseWaiters: (() => void)[] = []
++function waitIfPaused(): Promise<void> {
++  if (!paused) return Promise.resolve()
++  return new Promise((resolve) => pauseWaiters.push(resolve))
++}
+
+@@ async function buildLoop() { ... while (true) {  (first line inside the loop, above genie.md's try/catch further down)
+   let first = true
+   while (true) {
++    await waitIfPaused()
+     let app: App | null
+     let from: Stage | undefined
+
+@@ async function maintainLoop() { while (true) {  (first line inside the loop, above genie.md's pollReports edit further down)
+ async function maintainLoop() {
+   while (true) {
++    await waitIfPaused()
+     const apps = liveApps()
+
 @@ function serveFile(...) { ... }  (unchanged, add this helper right after it)
 +// Reads a POST body up to `max` chars, parses it as JSON (empty object on a parse failure so a
 +// handler's `body.foo` reads are all just undefined rather than throwing), same shape as /report's.
@@ -5047,7 +5224,8 @@ switches the root static route from `board/` to the built `web/dist/`.
 @@ function startServer() { createServer((req, res) => { ... (insert right after the /state handler, before /report; /report's body is Code A's patched version — paste below it or above it, order between these two doesn't matter)
      if (req.method === 'GET' && url.pathname === '/state') {
        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-       return res.end(JSON.stringify({ ...state, watch }))
+-      return res.end(JSON.stringify({ ...state, watch }))
++      return res.end(JSON.stringify({ ...state, watch, paused }))
      }
 +    // Which keys are set — booleans only, never the values. Polled once by the setup wizard on load.
 +    if (req.method === 'GET' && url.pathname === '/setup') {
@@ -5084,6 +5262,21 @@ switches the root static route from `board/` to the built `web/dist/`.
 +        res.end(JSON.stringify({ ok: true }))
 +        boot(mode).catch((e) => console.error('[genie] loops crashed:', e))
 +      })
++    }
++    // Pause/resume: both loops go idle at their next tick (see waitIfPaused()); the board keeps
++    // polling /state throughout, it just shows the last thing Genie was doing without moving.
++    if (req.method === 'POST' && url.pathname === '/pause') {
++      if (!isLoopback(req)) return res.writeHead(403).end('loopback only')
++      paused = true
++      res.writeHead(200, { 'content-type': 'application/json' })
++      return res.end(JSON.stringify({ ok: true, paused }))
++    }
++    if (req.method === 'POST' && url.pathname === '/resume') {
++      if (!isLoopback(req)) return res.writeHead(403).end('loopback only')
++      paused = false
++      pauseWaiters.splice(0).forEach((resolve) => resolve())
++      res.writeHead(200, { 'content-type': 'application/json' })
++      return res.end(JSON.stringify({ ok: true, paused }))
 +    }
      // File a report by hand: POST /report?slug=<app> with the text as the body, or a JSON {slug, text, author}.
      if (req.method === 'POST' && url.pathname === '/report') {
@@ -5323,7 +5516,7 @@ curl -X POST http://localhost:3911/run -d '{"mode":"demo"}'   # → 202 {"ok":tr
 curl http://localhost:3911/setup   # running:true, mode:"demo"
 ```
 Confirmed: the log shows the full scripted run (`[parallel] searching reddit for wishes (fake)` →
-… → `[composio] r/GenieGrants post: ...` → a second wish → an issue approved and shipped →
+… → `[composio] reply to u/... (fake)` → a second wish → an issue approved and shipped →
 `[genie] --once: a new app is live and an issue is answered, done`), and the process exits cleanly
 — i.e. pressing Play with zero keys genuinely reproduces `npm run demo`.
 

@@ -178,7 +178,7 @@
   <div class="how">
     <div><b>1 · Finds a wish</b><span>Searches Reddit and counts how many people want the same thing.</span></div>
     <div><b>2 · Asks you</b><span>Texts you. Nothing happens until you reply YES.</span></div>
-    <div><b>3 · Builds and ships</b><span>Writes the app, tests it, posts it, and answers requests later.</span></div>
+    <div><b>3 · Builds and replies</b><span>Writes the app, puts it online, replies to the person who asked, and handles requests later.</span></div>
   </div>
 </section>
 
@@ -272,9 +272,9 @@ const STEPS = [
     why: 'Genie uses a service called Parallel to search Reddit for posts like "I wish there was an app that…", and to find other people asking for the same thing.',
     fields: `<label>Parallel API key</label><input class="secret" type="password" placeholder="par_…">
       <a class="getkey" href="#" onclick="return false">Get a free key at parallel.ai →</a>` },
-  { id: 'composio', name: 'Reddit + GitHub', role: 'Posts launches, creates repos, reads requests', sponsor: 'Composio',
+  { id: 'composio', name: 'Reddit + GitHub', role: 'Replies to the person who asked, saves the code, reads requests', sponsor: 'Composio',
     title: 'Connect Reddit and GitHub',
-    why: 'Genie uses a service called Composio to post on Reddit and to save each app\'s code on GitHub. Connect both accounts in Composio, then paste your key.',
+    why: 'Genie uses a service called Composio to reply on Reddit and to save each app\'s code on GitHub. Connect both accounts in Composio, then paste your key.',
     fields: `<label>Composio API key</label><input class="secret" type="password" placeholder="ak_…">
       <ul class="checklist">
         <li onclick="this.classList.toggle('ok')"><span class="box"></span>Reddit connected in Composio<a href="#" onclick="return false">Open →</a></li>
@@ -291,7 +291,7 @@ const STEPS = [
       <a class="getkey" href="#" onclick="return false">Where do I get this key? →</a>` },
   { id: 'photon', name: 'Text approvals', role: 'Asks you before anything goes public', sponsor: 'Photon',
     title: 'Where should Genie text you?',
-    why: 'Genie uses Photon to text you three times per app: before building, before posting (with a screenshot), and before changing a live app. Reply YES or NO. NO is always safe.',
+    why: 'Genie uses Photon to text you three times per app: before building, before replying to the person on Reddit (with a screenshot), and before changing a live app. Reply YES or NO. NO is always safe.',
     fields: `<div class="seg" id="seg">
         <button class="on" onclick="pick(this)"><b>This Mac's Messages</b><span>Genie texts you from the Messages app on this Mac</span></button>
         <button onclick="pick(this)"><b>Photon Cloud</b><span>Works on any computer</span></button>
@@ -376,7 +376,7 @@ function renderReady() {
 }
 
 // ── live board: a scripted run of one new wish plus one request on an old app ──
-const RAIL = [['Found', 'Parallel'], ['Checked', 'Parallel'], ['You said yes', 'Photon'], ['Built', 'Cline'], ['You said post', 'Photon'], ['Live', 'Composio · Vercel']]
+const RAIL = [['Found', 'Parallel'], ['Checked', 'Parallel'], ['You said yes', 'Photon'], ['Built', 'Cline'], ['You said reply', 'Photon'], ['Live', 'Composio · Vercel']]
 const COLORS = ['#f0a53a', '#e7c66a', '#d98a5c', '#c7b07a', '#e9b47f', '#b8a06a']
 let timers = [], waiting = null
 function stopBoard() { timers.forEach(clearTimeout); timers = []; waiting = null; if (typeof paused !== 'undefined' && paused) togglePause() }
@@ -450,10 +450,10 @@ function startBoard() {
         later(900 * steps.length + 1400, () => {
           rail(4)
           const shot = `<div class="shot"><b>Grocery list</b><div class="r"><span>🥬 Produce</span><span>4</span></div><div class="r"><span>🥩 Meat</span><span>1</span></div><div class="r"><span>🥫 Pantry</span><span>3</span></div><div class="r"><span>🧀 Dairy</span><span>2</span></div><div class="total">Copy list</div><div class="ft">Wished by u/maya_k, granted by Genie</div></div>`
-          ask("Here's the recipe → grocery list app. Post it to r/GenieGrants? Reply YES or NO.", shot, () => {
+          ask("Here's the recipe → grocery list app. Reply to u/maya_k on the original Reddit post with the link? Reply YES or NO.", shot, () => {
             rail(6, false)
-            focus(`<div class="mine">YES</div><div class="wish" style="font-size:24px">Live, and u/maya_k was tagged</div>
-              <div class="links"><a href="#" onclick="return false"><b>●</b> recipe-grocery-list.vercel.app</a><a href="#" onclick="return false">GitHub repo · MIT license</a><a href="#" onclick="return false">Post on r/GenieGrants</a></div>`)
+            focus(`<div class="mine">YES</div><div class="wish" style="font-size:24px">Live, and Genie replied to u/maya_k</div>
+              <div class="links"><a href="#" onclick="return false"><b>●</b> recipe-grocery-list.vercel.app</a><a href="#" onclick="return false">GitHub repo · MIT license</a><a href="#" onclick="return false">Genie\'s reply on r/Cooking</a></div>`)
             library(true)
           })
         })
