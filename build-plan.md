@@ -1,4 +1,4 @@
-# Build plan (Mon Oct 19): seeded demo → real Genie, in 3.5 hours
+# Build plan October 19
 
 **11:45 → 3:15** (submissions close 3:15, demos 3:35). Recording starts by 2:20 at the latest. Everything after 2:50 is buffer.
 Goal: Genie really surfs Reddit, really finds a wish, texts us on **Photon**, and on YES **Cline** builds it, then **Composio** creates a **new GitHub repo with an MIT license**, pushes the app, **Vercel** deploys it, and Genie **replies to the person who wished for it, on their own Reddit thread**, with the link. An issue on that repo → text → YES → Cline ships v2.
