@@ -79,7 +79,8 @@ export type App = {
   askers: Asker[]
   stage: Stage
   url?: string // served by our box: /apps/<slug>/
-  pagesUrl?: string // public GitHub Pages link used in Reddit posts
+  repo?: string // GitHub repo name under GITHUB_ORG, set on first publish
+  pagesUrl?: string // public Vercel URL used in Reddit posts
   screenshot?: string
   launchPostId?: string
   wisherCommentId?: string
