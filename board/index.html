@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Genie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0c0a; --panel: #15140f; --line: #2a2820; --line-2: #3a372c;
+    --text: #efe9dc; --text-2: #bdb6a6; --muted: #837d70; --faint: #55524a;
+    --accent: #f0a53a; --accent-ink: #1a1206; --accent-soft: rgba(240,165,58,.12);
+    --sans: 'Geist', ui-sans-serif, system-ui, sans-serif; --mono: 'Geist Mono', ui-monospace, Menlo, monospace;
+    --ease: cubic-bezier(.2,.7,.2,1); --fast: 260ms; --slow: 560ms;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; }
+  body { color: var(--text); font: 500 20px/1.4 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .hide { display: none !important; }
+
+  /* The whole board is a 1920×1080 stage scaled to fit the window, so it looks the same everywhere. */
+  #stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: center; display: flex; flex-direction: column; padding: 56px 96px 48px; }
+
+  header { display: flex; align-items: center; gap: 20px; height: 48px; }
+  .wordmark { font-weight: 700; font-size: 32px; letter-spacing: -.04em; line-height: 1; }
+  .chip { font: 600 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; padding: 8px 10px; border-radius: 4px; border: 1px solid var(--line-2); color: var(--muted); }
+  .clock { margin-left: auto; display: flex; align-items: baseline; gap: 14px; }
+  .clock b { font: 600 32px/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .clock b.live { color: var(--accent); }
+  .clock span { font-size: 15px; color: var(--muted); }
+
+  /* ── progress rail ── */
+  #rail { list-style: none; margin: 72px 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); position: relative; }
+  #rail::before { content: ''; position: absolute; left: calc(100% / 12); right: calc(100% / 12); top: 7px; height: 2px; background: var(--line); }
+  #rail .fill { position: absolute; left: calc(100% / 12); top: 7px; height: 2px; background: var(--accent); width: 0; transition: width var(--slow) var(--ease); }
+  .step { position: relative; text-align: center; color: var(--faint); padding-top: 30px; }
+  .step .dot { position: absolute; top: 0; left: 50%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--bg); border: 2px solid var(--line-2); transition: border-color var(--fast), background var(--fast), transform var(--fast) var(--ease); display: grid; place-items: center; }
+  .step .dot svg { width: 9px; height: 9px; } .step .dot svg path { stroke: var(--accent-ink); stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset var(--slow) var(--ease) 120ms; }
+  .step.done .dot { background: var(--accent); border-color: var(--accent); } .step.done .dot svg path { stroke-dashoffset: 0; }
+  .step.now .dot { border-color: var(--accent); transform: scale(1.3); }
+  .step.now .dot::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 1px solid var(--accent); animation: pulse 1.6s var(--ease) infinite; }
+  @keyframes pulse { 0%, 100% { opacity: .1; transform: scale(.9); } 50% { opacity: .8; transform: scale(1.15); } }
+  .step .l { display: block; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .step.done .l { color: var(--text-2); } .step.now .l { color: var(--accent); }
+  .step .by { display: block; margin-top: 4px; font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); opacity: 0; transition: opacity var(--fast); }
+  .step.now .by { opacity: 1; color: var(--muted); }
+
+  /* ── focus ── */
+  #focus { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 36px; text-align: center; }
+  .in { animation: rise var(--slow) var(--ease) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+  .leave { opacity: 0 !important; transform: translateY(8px) !important; transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease); pointer-events: none; }
+
+  .wish { max-width: 1240px; font-size: 56px; font-weight: 700; letter-spacing: -.035em; line-height: 1.1; }
+  .wish.quiet { color: var(--faint); font-weight: 500; font-size: 40px; }
+  .wish .who { display: block; margin-top: 20px; font: 500 18px/1 var(--mono); color: var(--muted); letter-spacing: .02em; }
+  .live-line { display: inline-flex; align-items: center; gap: 14px; font-size: 20px; color: var(--muted); }
+  .live-line i { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite; }
+
+  .people { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+  .people .n { display: flex; align-items: baseline; gap: 18px; }
+  .people .n b { font: 600 168px/1 var(--mono); color: var(--accent); letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+  .people .n span { font-size: 30px; color: var(--text-2); }
+  .avatars { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 900px; }
+  .av { position: relative; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font: 600 17px/1 var(--mono); color: var(--text); letter-spacing: .04em; border: 1px solid var(--line-2); animation: pop var(--slow) var(--ease) both; animation-delay: calc(var(--i) * 150ms); transition: transform var(--fast) var(--ease), opacity var(--fast); }
+  .av:hover { transform: scale(1.08); }
+  @keyframes pop { from { opacity: 0; transform: scale(.5); } }
+
+  .phone { display: flex; flex-direction: column; gap: 10px; width: 760px; }
+  .bubble { max-width: 88%; padding: 16px 22px; border-radius: 22px; font-size: 22px; line-height: 1.35; text-align: left; animation: rise var(--slow) var(--ease) both; transition: opacity var(--fast), transform var(--fast); }
+  .bubble.them { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); border-bottom-left-radius: 6px; color: var(--text-2); }
+  .bubble.me { align-self: flex-end; background: var(--accent); color: var(--accent-ink); font: 600 20px/1.3 var(--mono); text-transform: uppercase; letter-spacing: .06em; border-bottom-right-radius: 6px; }
+  .typing { align-self: flex-end; color: var(--faint); font: 500 14px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 6px 10px; animation: pulse 1.4s infinite; }
+
+  .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; width: 640px; }
+  .check { position: relative; overflow: hidden; display: flex; align-items: center; gap: 20px; padding: 20px 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); font-size: 26px; text-align: left; animation: rise var(--fast) var(--ease) both; transition: opacity var(--fast), transform var(--fast); }
+  .check .box { width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--line-2); display: grid; place-items: center; flex: none; }
+  .check svg { width: 16px; height: 16px; } .check svg path { stroke: var(--accent); stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset var(--slow) var(--ease) 80ms; }
+  .check.ok .box { border-color: var(--accent); } .check.ok svg path { stroke-dashoffset: 0; }
+  .check.live .box { border-color: var(--accent); }
+  .check.live::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(240,165,58,.08) 50%, transparent 80%); transform: translateX(-100%); animation: shimmer 1.4s var(--ease) infinite; }
+  @keyframes shimmer { to { transform: translateX(100%); } }
+
+  .app { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
+  .made { display: flex; flex-direction: column; gap: 8px; animation: rise var(--slow) var(--ease) both; }
+  .made .k { font: 500 13px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .made .t { font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
+  .preview { position: relative; width: 1120px; height: 440px; border-radius: 16px; overflow: hidden; background: var(--panel); border: 1px solid var(--line); }
+  .preview iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; opacity: 0; transform: scale(.985); transition: opacity var(--slow) var(--ease), transform var(--slow) var(--ease); }
+  .preview iframe.on { opacity: 1; transform: none; }
+  .vtag { position: absolute; top: 14px; right: 14px; z-index: 2; background: var(--bg); color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 7px 10px; font: 600 13px/1 var(--mono); letter-spacing: .1em; animation: rise var(--fast) var(--ease) both; }
+  .line { display: inline-flex; align-items: center; gap: 16px; font-size: 20px; color: var(--text-2); animation: rise var(--slow) var(--ease) both; }
+  .line i { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s infinite; }
+  .line .u { font: 500 16px/1 var(--mono); color: var(--muted); }
+  #bugs { width: 1120px; }
+  .bug { position: relative; display: flex; align-items: center; gap: 22px; padding: 18px 26px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-2); text-align: left; animation: rise var(--slow) var(--ease) both; overflow: hidden; transition: opacity var(--fast), transform var(--fast), border-color var(--fast); }
+  .bug q { flex: 1; font-size: 22px; color: var(--text); quotes: '“' '”'; }
+  .bug .s { flex: none; font: 600 14px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 12px; }
+  .bug.fixing .s { color: var(--accent); }
+  .bug.fixing::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(240,165,58,.08) 50%, transparent 80%); transform: translateX(-100%); animation: shimmer 1.4s var(--ease) infinite; pointer-events: none; }
+  .bug.fixed { border-color: var(--accent); animation: settle var(--slow) var(--ease) both; }
+  .bug.fixed .s { color: var(--accent); }
+  .bug .s .v { color: var(--accent-ink); background: var(--accent); padding: 5px 7px; border-radius: 4px; }
+  @keyframes settle { 0% { transform: translateY(-8px); } 55% { transform: translateY(4px); } 100% { transform: none; } }
+
+  .status { font-size: 36px; color: var(--muted); }
+
+  /* ── footer ── */
+  footer { display: flex; align-items: flex-end; gap: 48px; height: 96px; }
+  .stats { display: flex; gap: 40px; }
+  .stat { display: flex; flex-direction: column; gap: 6px; }
+  .stat b { font: 600 34px/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .stat span { font-size: 13px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+  .heard { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .heard .h { font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+  .heard .w { font-size: 16px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; animation: rise var(--slow) var(--ease) both; transition: opacity var(--fast), transform var(--fast); }
+  .heard .w b { color: var(--text-2); font-weight: 500; }
+  .heard .w .ex { color: var(--accent); }
+  .qr { display: flex; align-items: center; gap: 14px; }
+  .qr .code { width: 84px; height: 84px; background: #fff; padding: 6px; border-radius: 8px; }
+  .qr .code img, .qr .code canvas { width: 72px !important; height: 72px !important; display: block; }
+  .qr .l { font: 500 13px/1.5 var(--mono); color: var(--muted); }
+  .qr .l b { display: block; color: var(--text-2); font-weight: 600; }
+  body.focus footer .stats, body.focus footer .heard { visibility: hidden; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .preview iframe { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <div class="wordmark">Genie</div>
+    <span id="sample" class="chip hide">Sample</span>
+    <div class="clock" id="clock"></div>
+  </header>
+  <ol id="rail"><div class="fill"></div></ol>
+  <section id="focus">
+    <div id="wish" class="wish quiet">Listening for wishes…</div>
+    <div id="searching" class="live-line hide"><i></i><span></span></div>
+    <div id="people" class="people hide"><div class="n"><b data-v="0">0</b><span>people asked for this</span></div><div class="avatars" id="avatars"></div></div>
+    <div id="phone" class="phone hide"></div>
+    <ul id="checks" class="checks hide"></ul>
+    <div id="app" class="app hide"><div class="made" id="made"></div><div class="preview" id="preview"></div><div id="liveLine"></div></div>
+    <div id="status" class="status hide"></div>
+  </section>
+  <footer>
+    <div class="stats" id="stats"></div>
+    <div class="heard" id="heard"></div>
+    <div id="qr" class="qr hide"></div>
+  </footer>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const $ = (s) => document.querySelector(s)
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+const uniq = (askers = []) => new Set(askers.map((a) => a.author.toLowerCase())).size
+const STEPS = [
+  { label: 'Found', by: 'Parallel' }, { label: 'Wanted', by: 'Parallel' }, { label: 'You said yes', by: 'Photon' },
+  { label: 'Built', by: 'Cline' }, { label: 'You said post', by: 'Photon' }, { label: 'Live', by: 'Composio' },
+]
+const AT = { found: 0, validating: 1, awaiting_approval: 2, building: 3, testing: 3, awaiting_post_approval: 4, launched: 6, maintaining: 6, exists: 1, rejected: 2, shelved: 5, failed: 3 }
+const LIVE = (a) => a.stage === 'launched' || a.stage === 'maintaining'
+const AV_COLORS = ['#3d3729', '#2d3a39', '#3b2f35', '#2f3a2c', '#3a3330', '#2c3340', '#3a2d2a', '#33382f']
+const hash = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
+const initials = (name) => { const p = name.replace(/^fake_/, '').split(/[_\-.]+/).filter(Boolean); return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? p[0]?.[1] ?? '')).toUpperCase() }
+const mmss = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
+const startOf = (a) => a.stageAt?.found ?? a.stageAt?.validating
+const CHECK = '<svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 4.5"/></svg>'
+
+// Scale the 1920×1080 stage to the window.
+function fit() { const s = Math.min(innerWidth / 1920, innerHeight / 1080); $('#stage').style.transform = `translate(-50%, -50%) scale(${s})` }
+addEventListener('resize', fit); fit()
+
+// ── keyed DOM sync: creates, updates and removes children; untouched nodes keep their animations ──
+const keyed = new Map()
+function sync(parent, items) {
+  let m = keyed.get(parent)
+  if (!m) { m = new Map(); keyed.set(parent, m) }
+  const keys = new Set(items.map((i) => i.key))
+  for (const [k, rec] of m) if (!keys.has(k)) { m.delete(k); rec.el.classList.add('leave'); setTimeout(() => rec.el.remove(), 300) }
+  let prev = null
+  items.forEach((it, i) => {
+    const cls = it.cls || ''
+    let rec = m.get(it.key)
+    if (!rec) {
+      const el = document.createElement(it.tag || 'div')
+      el.className = cls; el.style.setProperty('--i', i); el.innerHTML = it.html
+      if (it.attrs) for (const [k, v] of Object.entries(it.attrs)) el.setAttribute(k, v)
+      rec = { el, html: it.html, cls }; m.set(it.key, rec)
+      prev ? prev.after(el) : parent.prepend(el)
+    } else {
+      if (rec.html !== it.html) { rec.el.innerHTML = it.html; rec.html = it.html }
+      if (rec.cls !== cls) { rec.el.className = cls; rec.cls = cls }
+      let want = prev ? prev.nextElementSibling : parent.firstElementChild
+      while (want && want.classList.contains('leave')) want = want.nextElementSibling
+      if (want !== rec.el) prev ? prev.after(rec.el) : parent.prepend(rec.el)
+    }
+    prev = rec.el
+  })
+}
+function tween(el, to, dur = 700) {
+  const from = Number(el.dataset.v || 0); if (from === to) return
+  el.dataset.v = to; const t0 = performance.now()
+  const step = (now) => { const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3); el.textContent = Math.round(from + (to - from) * e); if (p < 1) requestAnimationFrame(step) }
+  requestAnimationFrame(step)
+}
+const show = (el, on) => el.classList.toggle('hide', !on)
+const setText = (el, t) => { if (el.textContent !== t) el.textContent = t }
+
+function current(s) {
+  const all = [...s.apps, ...s.candidates]
+  if (s.pendingApproval) return all.find((a) => a.slug === s.pendingApproval.slug)
+  return s.apps.at(-1) ?? s.candidates.filter((a) => a.stage !== 'exists')[0]
+}
+
+// ── rail ──
+$('#rail').insertAdjacentHTML('beforeend', STEPS.map((st, i) => `<li class="step" id="step${i}"><span class="dot">${CHECK}</span><span class="l">${st.label}</span><span class="by">via ${st.by}</span></li>`).join(''))
+function renderRail(app) {
+  const at = app ? AT[app.stage] ?? 0 : -1
+  const n = app ? uniq(app.askers) : 0
+  STEPS.forEach((st, i) => {
+    const el = $(`#step${i}`)
+    el.classList.toggle('done', i < at); el.classList.toggle('now', i === at)
+    setText(el.querySelector('.l'), i === 1 && n ? `${n} people asked` : st.label)
+  })
+  $('#rail .fill').style.width = at <= 0 ? '0' : `calc(${Math.min(at, 5)} * 100% / 6)`
+}
+
+// ── clock ──
+let clockApp = null
+function tickClock() {
+  const el = $('#clock'), a = clockApp
+  if (!a) { if (el.innerHTML) el.innerHTML = ''; return }
+  const end = a.stageAt?.launched
+  const html = end ? `<b>${mmss(end - startOf(a))}</b><span>wish → live app</span>` : `<b class="live">${mmss(Date.now() - startOf(a))}</b><span>since the wish</span>`
+  if (el.innerHTML !== html) el.innerHTML = html
+}
+setInterval(tickClock, 250)
+
+// ── focus ──
+let previewKey = ''
+function renderPreview(app) {
+  const box = $('#preview'), key = `${app.slug}@${app.version}`
+  if (previewKey === key) return
+  previewKey = key
+  const old = box.querySelector('iframe')
+  const f = document.createElement('iframe'); f.src = `${app.url}?v=${app.version}`
+  f.addEventListener('load', () => { f.classList.add('on'); if (old) setTimeout(() => old.remove(), 560) }, { once: true })
+  box.prepend(f)
+  let tag = box.querySelector('.vtag'); if (!tag) { tag = document.createElement('div'); tag.className = 'vtag'; box.append(tag) }
+  tag.textContent = `v${app.version}`; tag.style.animation = 'none'; void tag.offsetWidth; tag.style.animation = ''
+}
+function renderBug(app) {
+  const box = $('#bugs') ?? Object.assign(document.createElement('div'), { id: 'bugs' })
+  if (!box.parentNode) $('#preview').after(box)
+  const open = app.issues.filter((i) => i.status === 'triaged' || i.status === 'fixing').at(-1)
+  const fixed = app.issues.filter((i) => i.status === 'fixed').sort((x, y) => (x.fixedAt ?? 0) - (y.fixedAt ?? 0)).at(-1)
+  const bug = open ?? fixed
+  const state = open ? (open.status === 'fixing' ? 'fixing' : 'reported') : 'fixed'
+  const label = state === 'fixing' ? 'Fixing' : state === 'reported' ? 'Reported' : `Fixed${bug?.version ? ` <span class="v">v${bug.version}</span>` : ''}${bug?.fixedAt && bug?.reportedAt ? `<span>in ${Math.round((bug.fixedAt - bug.reportedAt) / 1000)}s</span>` : ''}`
+  sync(box, bug ? [{ key: bug.id, cls: `bug ${state}`, html: `<q>${esc(bug.text)}</q><div class="s">${label}</div>` }] : [])
+}
+function renderFocus(s, app) {
+  const stage = app?.stage ?? 'none'
+  const n = app ? uniq(app.askers) : 0
+  clockApp = app && startOf(app) && !['exists', 'rejected'].includes(stage) ? app : null
+  tickClock()
+
+  // the wish itself, big, until people show up
+  const wishStage = stage === 'none' || ((stage === 'found' || stage === 'validating') && n === 0)
+  show($('#wish'), wishStage)
+  if (wishStage) {
+    const html = app ? `${esc(app.wish.text)}${app.wish.author ? `<span class="who">u/${esc(app.wish.author)}</span>` : ''}` : 'Listening for wishes…'
+    if ($('#wish').innerHTML !== html) { $('#wish').innerHTML = html; $('#wish').classList.add('in') }
+    $('#wish').classList.toggle('quiet', !app)
+  }
+  show($('#searching'), wishStage && !!app)
+  if (wishStage && app) setText($('#searching span'), stage === 'found' ? 'Reading it' : 'Looking for other people who asked')
+
+  // how many people, as faces
+  const peopleStage = n > 0 && ['validating', 'awaiting_approval', 'rejected'].includes(stage)
+  show($('#people'), peopleStage)
+  if (peopleStage) {
+    sync($('#avatars'), app.askers.map((k) => ({ key: k.author.toLowerCase(), tag: 'a', cls: 'av', attrs: { href: k.url, target: '_blank', rel: 'noopener', title: `u/${k.author}${k.source && k.source !== 'reddit' ? ` · ${k.source}` : ''}`, style: `background:${AV_COLORS[hash(k.author) % AV_COLORS.length]}` }, html: esc(initials(k.author)) })))
+    tween($('#people .n b'), n, Math.max(500, n * 150))
+  }
+
+  // the text to the owner, and the reply landing
+  const kind = stage === 'awaiting_approval' ? 'build' : stage === 'awaiting_post_approval' ? 'post' : null
+  const approvals = kind ? (app.approvals ?? []).filter((x) => x.kind === kind) : []
+  show($('#phone'), approvals.length > 0)
+  if (approvals.length) {
+    const x = approvals.at(-1), i = approvals.length - 1
+    const items = [{ key: `q${i}`, cls: 'bubble them', html: esc(x.text) }]
+    items.push(x.reply ? { key: `r${i}`, cls: 'bubble me', html: esc(x.reply) } : { key: `t${i}`, cls: 'typing', html: 'Waiting for you' })
+    sync($('#phone'), items)
+  }
+
+  // build checklist
+  const building = stage === 'building' || stage === 'testing' || stage === 'failed'
+  show($('#checks'), building)
+  if (building) {
+    const done = app.checks ?? []
+    const items = done.map((c) => ({ key: c.label, tag: 'li', cls: `check ${c.ok ? 'ok' : ''}`, html: `<span class="box">${CHECK}</span>${esc(c.label)}` }))
+    const next = done.length === 0 ? 'Writing the app' : stage === 'testing' ? 'Testing it' : null
+    if (next && stage !== 'failed') items.push({ key: 'live', tag: 'li', cls: 'check live', html: `<span class="box"></span>${next}` })
+    sync($('#checks'), items)
+  }
+
+  // the app, live, with the latest bug on top of it
+  const appStage = app?.url && (stage === 'awaiting_post_approval' || LIVE(app) || stage === 'shelved')
+  show($('#app'), !!appStage)
+  if (appStage) {
+    const others = Math.max(0, n - 1)
+    const made = `<div class="k">${LIVE(app) ? 'Genie built this' : 'Genie built this, not posted yet'}${app.wish.author ? ` for u/${esc(app.wish.author)}${others ? ` and ${others} other${others > 1 ? 's' : ''}` : ''}` : ''}</div><div class="t">${esc(app.spec ?? app.wish.text)}</div>`
+    if ($('#made').innerHTML !== made) $('#made').innerHTML = made
+    renderPreview(app)
+    renderBug(app)
+    const line = LIVE(app)
+      ? `<div class="line"><i></i><span>Live on r/GenieGrants</span>${app.launchUrl ? `<span class="u">${esc(app.launchUrl.replace(/^https?:\/\/(www\.)?/, ''))}</span>` : ''}</div>`
+      : stage === 'shelved' ? `<div class="line"><span>Kept private</span></div>` : ''
+    if ($('#liveLine').innerHTML !== line) $('#liveLine').innerHTML = line
+  } else { $('#preview').innerHTML = ''; previewKey = ''; $('#liveLine').innerHTML = ''; $('#made').innerHTML = ''; $('#bugs')?.remove() }
+
+  const msg = { rejected: 'Skipped', failed: "Couldn't build this one" }[stage]
+  show($('#status'), !!msg); if (msg) setText($('#status'), msg)
+}
+
+// ── footer ──
+function renderFooter(s, app) {
+  const all = [...s.apps, ...s.candidates]
+  const live = s.apps.filter(LIVE)
+  const vals = [
+    ['Wishes heard', all.length],
+    ['People helped', new Set(live.flatMap((a) => a.askers.map((k) => k.author.toLowerCase()))).size],
+    ['Bugs fixed', s.apps.reduce((n, a) => n + a.issues.filter((i) => i.status === 'fixed').length, 0)],
+  ]
+  sync($('#stats'), vals.map(([label]) => ({ key: label, cls: 'stat', html: `<b data-v="0">0</b><span>${label}</span>` })))
+  vals.forEach(([, v], i) => tween($('#stats').children[i].querySelector('b'), v))
+
+  const others = all.filter((a) => a !== app && a.wish?.text).sort((a, b) => (startOf(b) ?? 0) - (startOf(a) ?? 0)).slice(0, 3)
+  const items = others.length ? [{ key: 'h', cls: 'h', html: 'Also heard' }] : []
+  for (const a of others) items.push({ key: a.slug, cls: 'w', html: `<b>${esc(a.wish.text)}</b>${a.stage === 'exists' && a.existingTool ? ` <span class="ex">→ already exists: ${esc(a.existingTool.name)}</span>` : a.askers.length ? ` <span>· ${uniq(a.askers)} asked</span>` : ''}` })
+  sync($('#heard'), items)
+}
+let qrFor = ''
+function renderQR(s) {
+  const live = s.apps.filter(LIVE).at(-1)
+  const url = s.sample ? 'https://www.reddit.com/r/GenieGrants/' : live?.pagesUrl ?? live?.launchUrl ?? 'https://www.reddit.com/r/GenieGrants/'
+  show($('#qr'), typeof QRCode !== 'undefined')
+  if (qrFor === url || typeof QRCode === 'undefined') return
+  qrFor = url
+  $('#qr').innerHTML = `<div class="code"></div><div class="l"><b>${url.includes('reddit') ? 'r/GenieGrants' : 'Open the app'}</b>${esc(url.replace(/^https?:\/\/(www\.)?/, ''))}</div>`
+  new QRCode($('#qr .code'), { text: url, width: 72, height: 72, colorDark: '#0d0c0a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M })
+}
+
+function render(s) {
+  const app = current(s)
+  show($('#sample'), !!s.sample)
+  renderRail(app); renderFocus(s, app); renderFooter(s, app); renderQR(s)
+}
+
+// ── polling, replay, presenter keys ──
+let last = '', live = null, replaying = false
+async function tick() {
+  try {
+    const text = await (await fetch('/state', { cache: 'no-store' })).text()
+    if (text !== last) { last = text; live = JSON.parse(text); if (!replaying) render(live) }
+  } catch {}
+  setTimeout(tick, 1000)
+}
+tick()
+
+function rewind(s, t) {
+  const ev = (s.events ?? []).filter((e) => e.t <= t)
+  const map = (a) => {
+    const mine = ev.filter((e) => e.slug === a.slug)
+    if (!mine.length) return null
+    const stage = mine.at(-1).stage
+    const stageAt = Object.fromEntries(Object.entries(a.stageAt ?? {}).filter(([, v]) => v <= t))
+    const approvals = (a.approvals ?? []).filter((x) => x.askedAt <= t).map((x) => (x.repliedAt && x.repliedAt <= t ? x : { ...x, reply: undefined, repliedAt: undefined }))
+    const issues = a.issues.filter((i) => (i.reportedAt ?? 0) <= t).map((i) => (i.status === 'ignored' || (i.fixedAt && i.fixedAt <= t) ? i : { ...i, status: 'fixing', fixedAt: undefined, version: undefined }))
+    const isLive = stage === 'launched' || stage === 'maintaining'
+    const version = isLive ? 1 + issues.filter((i) => i.status === 'fixed').length : AT[stage] >= 3 ? 1 : 0
+    const checks = stage === 'building' ? [] : stage === 'testing' ? (a.checks ?? []).slice(0, 1) : a.checks
+    return { ...a, stage, stageAt, approvals, issues, version, checks, askers: stage === 'found' ? [] : a.askers, launchUrl: isLive ? a.launchUrl : undefined, pagesUrl: isLive ? a.pagesUrl : undefined }
+  }
+  const apps = s.apps.map(map).filter(Boolean), candidates = s.candidates.map(map).filter(Boolean)
+  const pend = [...apps, ...candidates].find((a) => a.approvals?.at(-1) && !a.approvals.at(-1).reply)
+  return { ...s, apps, candidates, pendingApproval: pend ? { slug: pend.slug, kind: pend.approvals.at(-1).kind } : undefined }
+}
+function resetBoard() {
+  keyed.clear(); qrFor = ''; previewKey = ''
+  for (const id of ['avatars', 'phone', 'checks', 'preview', 'liveLine', 'made', 'stats', 'heard', 'qr']) $('#' + id).innerHTML = ''
+  $('#bugs')?.remove()
+  $('#wish').innerHTML = ''; $('#people .n b').dataset.v = 0; $('#people .n b').textContent = '0'
+  for (let i = 0; i < 6; i++) $(`#step${i}`).className = 'step'
+}
+async function replay() {
+  if (!live || replaying) return
+  const s = live
+  const times = new Set((s.events ?? []).map((e) => e.t))
+  for (const a of [...s.apps, ...s.candidates]) {
+    for (const x of a.approvals ?? []) { times.add(x.askedAt); if (x.repliedAt) times.add(x.repliedAt) }
+    for (const i of a.issues) { if (i.reportedAt) times.add(i.reportedAt); if (i.fixedAt) times.add(i.fixedAt) }
+  }
+  const pts = [...times].sort((a, b) => a - b)
+  if (!pts.length) return
+  replaying = true; resetBoard(); render({ candidates: [], apps: [], sample: s.sample })
+  await new Promise((r) => setTimeout(r, 900))
+  let prev = pts[0]
+  for (const t of pts) {
+    if (!replaying) return
+    await new Promise((r) => setTimeout(r, Math.min(2600, Math.max(900, (t - prev) / 2))))
+    prev = t
+    render(rewind(s, t + 1))
+  }
+  replaying = false
+  setTimeout(() => { if (!replaying && live) render(live) }, 1500)
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'r' || e.key === 'R') { replaying = false; resetBoard(); if (live) render(live) }
+  if (e.key === ' ') { e.preventDefault(); replaying ? (replaying = false, resetBoard(), live && render(live)) : replay() }
+  if (e.key === 'f' || e.key === 'F') document.body.classList.toggle('focus')
+  if (e.key === 'Escape') { replaying = false; resetBoard(); if (live) render(live) }
+})
+</script>
+</body>
+</html>
