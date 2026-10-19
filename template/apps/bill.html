@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{SPEC}}</title>
+<style>
+  :root { --bg: #f4f4f6; --card: #ffffff; --ink: #16161a; --ink-2: #5c5c66; --line: #e6e6ea; --accent: #2f6df6; --accent-soft: #eaf0ff; --danger: #b42318; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  main { max-width: 520px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 26px; letter-spacing: -.02em; margin: 8px 0 4px; }
+  .sub { color: var(--ink-2); margin: 0 0 20px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 12px; }
+  .person { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); }
+  .person:first-child { border-top: 0; padding-top: 0; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  .chip i { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700; }
+  form.add { display: flex; gap: 8px; margin-top: 12px; }
+  input { flex: 1; min-width: 0; padding: 10px 12px; font: inherit; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+  button { padding: 10px 14px; font: inherit; font-weight: 600; border: 0; border-radius: 10px; background: var(--accent); color: #fff; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--danger); padding: 6px 8px; font-weight: 500; }
+  .item { padding: 10px 0; border-top: 1px solid var(--line); }
+  .item:first-child { border-top: 0; padding-top: 0; }
+  .item .top { display: flex; justify-content: space-between; font-weight: 600; }
+  .item .who { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .item label { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+  .item label:has(input:checked) { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600; }
+  .item label input { display: none; }
+  .extras { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .extras label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-2); }
+  .extras .money { position: relative; }
+  .extras .money input { width: 100%; padding-left: 26px; }
+  .extras .money::before { content: attr(data-unit); position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ink-2); font-size: 14px; }
+  .tips { display: flex; gap: 6px; margin-top: 10px; }
+  .tips button { flex: 1; padding: 7px 0; font-size: 13px; background: var(--accent-soft); color: var(--accent); }
+  .total-row { display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--line); font-size: 17px; }
+  .total-row:first-child { border-top: 0; padding-top: 0; }
+  .total-row b { font-variant-numeric: tabular-nums; }
+  .total-row small { display: block; font-size: 12px; color: var(--ink-2); font-weight: 400; }
+  .grand { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 12px; border-top: 2px solid var(--ink); font-weight: 700; font-size: 18px; }
+  footer { margin-top: 24px; font-size: 13px; color: var(--ink-2); text-align: center; }
+  footer a { color: var(--accent); }
+  footer .changelog { margin: 8px 0 0; font-size: 12px; }
+  footer .changelog span { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Split the bill by item</h1>
+  <p class="sub">Tick who had what. Tax and tip follow each person's share.</p>
+
+  <section>
+    <h2>People</h2>
+    <div id="people"></div>
+    <form class="add" id="addp"><input id="pname" placeholder="Add a name" autocomplete="off"><button type="submit">Add</button></form>
+  </section>
+
+  <section>
+    <h2>Items</h2>
+    <div id="items"></div>
+    <form class="add" id="addi"><input id="iname" placeholder="Item" autocomplete="off"><input id="iprice" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Price" style="max-width:110px"><button type="submit">Add</button></form>
+  </section>
+
+  <section>
+    <h2>Tax &amp; tip</h2>
+    <div class="extras">
+      <label>Tax <span class="money" data-unit="$"><input id="tax" type="number" inputmode="decimal" step="0.01" min="0" value="4.86"></span></label>
+      <label>Tip <span class="money" data-unit="%"><input id="tip" type="number" inputmode="decimal" step="1" min="0" value="18"></span></label>
+    </div>
+    <div class="tips"><button type="button" data-tip="15">15%</button><button type="button" data-tip="18">18%</button><button type="button" data-tip="20">20%</button><button type="button" data-tip="25">25%</button></div>
+  </section>
+
+  <section>
+    <h2>Who owes what</h2>
+    <div id="totals"></div>
+    <div class="grand"><span>Total</span><b id="grand">$0.00</b></div>
+  </section>
+
+  <footer>Wished by u/{{WISHER}}, granted by Genie (open source) · report a bug → <a href="{{ISSUES_URL}}">{{ISSUES_URL}}</a></footer>
+</main>
+<script>
+let people = ['Ana', 'Ben', 'Cy']
+let items = [
+  { name: 'Pizza', price: 24, who: ['Ana', 'Ben', 'Cy'] },
+  { name: 'Wine', price: 30, who: ['Ana', 'Ben'] },
+]
+const $ = (id) => document.getElementById(id)
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+const money = (c) => `$${(c / 100).toFixed(2)}`
+const num = (id) => Math.max(0, parseFloat($(id).value) || 0)
+
+// Splits `cents` across `weights` so the parts add up exactly: floor each share, hand out the leftover cents to the largest remainders.
+function splitCents(cents, weights) {
+  const sum = weights.reduce((a, b) => a + b, 0)
+  if (!sum) return weights.map(() => 0)
+  const raw = weights.map((w) => (cents * w) / sum)
+  const out = raw.map(Math.floor)
+  let left = cents - out.reduce((a, b) => a + b, 0)
+  raw.map((r, i) => [r - out[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { out[i]++; left-- } })
+  return out
+}
+
+function shares() {
+  const sub = Object.fromEntries(people.map((p) => [p, 0]))
+  for (const it of items) {
+    const who = it.who.filter((p) => p in sub)
+    splitCents(Math.round(it.price * 100), who.map(() => 1)).forEach((c, i) => { sub[who[i]] += c })
+  }
+  const subtotal = Object.values(sub).reduce((a, b) => a + b, 0)
+  const taxC = Math.round(num('tax') * 100), tipC = Math.round(subtotal * num('tip') / 100)
+  const weights = people.map((p) => sub[p])
+  const tax = splitCents(taxC, weights), tip = splitCents(tipC, weights)
+  return { rows: people.map((p, i) => ({ p, sub: sub[p], extra: tax[i] + tip[i] })), grand: subtotal + taxC + tipC }
+}
+
+function renderPeople() {
+  $('people').innerHTML = people.map((p) =>
+    `<div class="person"><span class="chip"><i>${esc(p[0].toUpperCase())}</i>${esc(p)}</span><button type="button" class="ghost" data-remove="${esc(p)}">Remove</button></div>`).join('')
+}
+function renderItems() {
+  $('items').innerHTML = items.map((it, i) =>
+    `<div class="item"><div class="top"><span>${esc(it.name)}</span><span>${money(Math.round(it.price * 100))}</span></div><div class="who">` +
+    people.map((p) => `<label><input type="checkbox" data-item="${i}" data-person="${esc(p)}" ${it.who.includes(p) ? 'checked' : ''}>${esc(p)}</label>`).join('') +
+    `</div></div>`).join('')
+}
+function renderTotals() {
+  const { rows, grand } = shares()
+  $('totals').innerHTML = rows.map(({ p, sub, extra }) => `<div class="total-row"><span>${esc(p)}<small>${money(sub)} + ${money(extra)} tax &amp; tip</small></span><b>${money(sub + extra)}</b></div>`).join('')
+  $('grand').textContent = money(grand)
+}
+function render() { renderPeople(); renderItems(); renderTotals() }
+
+function removePerson(name) {
+  people = people.filter((p) => p !== name)
+  items.forEach((it) => { it.who = it.who.filter((w) => w !== name) })
+  renderPeople(); renderItems()
+}
+
+$('addp').onsubmit = (e) => { e.preventDefault(); const n = $('pname').value.trim(); if (n && !people.some((p) => p.toLowerCase() === n.toLowerCase())) { people.push(n); $('pname').value = ''; render() } }
+$('addi').onsubmit = (e) => {
+  e.preventDefault()
+  const name = $('iname').value.trim(), price = parseFloat($('iprice').value)
+  if (name && price > 0) { items.push({ name, price, who: [...people] }); $('iname').value = ''; $('iprice').value = ''; render(); $('iname').focus() }
+}
+document.body.addEventListener('click', (e) => {
+  const n = e.target.dataset?.remove; if (n) removePerson(n)
+  const tip = e.target.dataset?.tip; if (tip) { $('tip').value = tip; renderTotals() }
+})
+document.body.addEventListener('input', (e) => { if (e.target.id === 'tax' || e.target.id === 'tip') renderTotals() })
+document.body.addEventListener('change', (e) => {
+  const { item, person } = e.target.dataset ?? {}
+  if (item === undefined) return
+  const it = items[item]
+  it.who = e.target.checked ? [...it.who, person] : it.who.filter((w) => w !== person)
+  renderTotals()
+})
+render()
+</script>
+</body>
+</html>
