@@ -81,7 +81,8 @@ async function runVercel(args: string[]): Promise<string> {
 // possibly trailed by "[copied to clipboard]" or a timer like "[4s]". Pull every URL out and take
 // the last one that isn't the vercel.com dashboard link.
 export function parseDeployUrl(stdout: string): string {
-  const urls = [...stdout.matchAll(/https?:\/\/\S+/g)].map((m) => m[0].replace(/[.,]*$/, ''))
+  // CLI 54 can print the URL inside quotes or JSON, so a URL stops at a quote or bracket
+  const urls = [...stdout.matchAll(/https?:\/\/[^\s"'<>()[\]{}]+/g)].map((m) => m[0].replace(/[.,]*$/, ''))
   const deployUrl = urls.filter((u) => !u.includes('vercel.com/')).pop()
   if (!deployUrl) throw new Error(`vercel deploy: no deployment URL in stdout: ${stdout}`)
   return deployUrl

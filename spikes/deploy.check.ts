@@ -16,6 +16,7 @@ const stdout = `Vercel CLI 54.15.0
 `
 check('parseDeployUrl takes the last line', parseDeployUrl(stdout), 'https://bill-splitter-8f3k2j1nq-genie-wishes.vercel.app')
 
+check('parseDeployUrl strips quotes (CLI 54 output)', parseDeployUrl('{"url": "https://splits-a-restaurant-bill-9teto5n2a-rishabs-projects-590b3580.vercel.app"}\n'), 'https://splits-a-restaurant-bill-9teto5n2a-rishabs-projects-590b3580.vercel.app')
 check('parseDeployUrl on a single-line stdout', parseDeployUrl('https://bill-splitter.vercel.app\n'), 'https://bill-splitter.vercel.app')
 
 try {
