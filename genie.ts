@@ -67,6 +67,13 @@ function ask(app: App, kind: ApprovalKind, text: string, help: string, opts: { i
 
 // ═══════════════════════════════ build loop ═══════════════════════════════
 
+// The build loop's wait between wishes. POST /sweep (the board's "Find another wish" button) ends it early.
+let wakeSweep: (() => void) | undefined
+const nap = (ms: number) => new Promise<void>((r) => {
+  const t = setTimeout(r, ms)
+  wakeSweep = () => { clearTimeout(t); wakeSweep = undefined; r() }
+})
+
 // Wishes the owner said NO/DIFFERENT to, or that already have an app. Never offered again this run.
 const declined = new Set<string>()
 const taken = (slug: string) => declined.has(slug) || state.apps.some((b) => b.slug === slug)
@@ -102,7 +109,7 @@ async function approveBuild(initial: App[] = []): Promise<App | null> {
         console.log(`[genie] nothing new to offer, looking again in ${DISCOVER_EVERY_MS / 60_000} min`)
         state.nextDiscoveryAt = Date.now() + DISCOVER_EVERY_MS
         save()
-        await sleep(DISCOVER_EVERY_MS)
+        await nap(DISCOVER_EVERY_MS)
       }
       queue = await freshQueue()
       refreshed = true
@@ -245,7 +252,7 @@ async function buildLoop() {
     if (ONCE) return
     state.nextDiscoveryAt = Date.now() + DISCOVER_EVERY_MS
     save()
-    await sleep(DISCOVER_EVERY_MS)
+    await nap(DISCOVER_EVERY_MS)
   }
 }
 
@@ -412,6 +419,9 @@ function serveFile(res: import('node:http').ServerResponse, root: string, rel: s
   res.end(readFileSync(file))
 }
 
+// The board's buttons only work from this machine.
+const isLocal = (req: import('node:http').IncomingMessage) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '')
+
 function startServer() {
   createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://x')
@@ -420,6 +430,24 @@ function startServer() {
       return res.end(JSON.stringify({ ...state, watch }))
     }
     // File a report by hand: POST /report?slug=<app> with the text as the body, or a JSON {slug, text, author}.
+    // Sweep Reddit now instead of waiting for the schedule. Optional JSON {seedUrl, seedSpec, seedKind} seeds the next wish.
+    if (req.method === 'POST' && url.pathname === '/sweep') {
+      if (!isLocal(req)) return res.writeHead(403).end('local only')
+      let body = ''
+      req.on('data', (c) => { if (body.length < 4_000) body += c })
+      req.on('end', () => {
+        try {
+          const j = JSON.parse(body || '{}')
+          if (j.seedUrl) Object.assign(process.env, { SEED_WISH_URL: String(j.seedUrl), SEED_WISH_SPEC: String(j.seedSpec ?? ''), SEED_WISH_KIND: String(j.seedKind ?? 'web_page') })
+        } catch {}
+        const woke = !!wakeSweep
+        wakeSweep?.()
+        delete state.nextDiscoveryAt
+        save()
+        res.writeHead(202).end(woke ? 'sweeping now' : 'Genie is busy with a wish; it sweeps again when that one is done')
+      })
+      return
+    }
     if (req.method === 'POST' && url.pathname === '/report') {
       let body = ''
       req.on('data', (c) => { if (body.length < 10_000) body += c })

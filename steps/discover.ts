@@ -252,10 +252,10 @@ async function seedWish(): Promise<App | undefined> {
     const c = r?.things?.[0]?.data
     if (!c?.author || !c.body) throw new Error('comment not found')
     const quote = scrub(c.body, 300)
-    const app = newApp(process.env.SEED_WISH_SPEC ?? quote, c.author, 'reddit', url)
-    app.spec = process.env.SEED_WISH_SPEC ?? quote
+    const app = newApp(process.env.SEED_WISH_SPEC || quote, c.author, 'reddit', url)
+    app.spec = process.env.SEED_WISH_SPEC || quote
     app.wish.text = quote
-    app.kind = process.env.SEED_WISH_KIND ?? 'web_page'
+    app.kind = process.env.SEED_WISH_KIND || 'web_page'
     app.upvotes = c.score ?? 0
     app.askers = [{ author: c.author, url, quote: scrub(c.body, 160), source: `r/${c.subreddit ?? sub(url)}`, foundAt: Date.now() }]
     seeded.add(app.slug)
