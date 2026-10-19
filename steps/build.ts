@@ -23,21 +23,49 @@ const TEMPLATES: [RegExp, string][] = [
 ]
 const pickTemplate = (spec: string) => TEMPLATES.find(([re]) => re.test(spec))?.[1] ?? 'bill'
 
-// What the fake Cline "says" while it writes each app. The real one maps its --json events to lines
-// like these: a write_to_file → "Creating index.html", a text block → its first sentence.
-const FEEDS: Record<string, string[]> = {
-  bill: ['Reading CONTRACT.md', 'Creating index.html', 'Laying out people and items', 'Adding tax and tip, split by each share', 'Making the cents add up', 'Styling for mobile', 'Writing the footer'],
-  grocery: ['Reading CONTRACT.md', 'Creating index.html', 'Parsing ingredient lines', 'Mapping ingredients to aisles in store order', 'Adding checkboxes and a copy button', 'Styling for mobile', 'Writing the footer'],
-  parking: ['Reading CONTRACT.md', 'Creating index.html', 'Adding the minutes input and quick buttons', 'Counting down, red under five minutes', 'Remembering the end time across reloads', 'Styling for mobile', 'Writing the footer'],
+// What the fake Cline "says" while it writes each app: its reasoning in plain sentences, the files it
+// reads, the edits it makes. The real one maps its --json events the same way (see FeedLine in lib/types.ts).
+type Line = [FeedLine['kind'], string]
+const FEEDS: Record<string, Line[]> = {
+  bill: [
+    ['read', 'Reading CONTRACT.md'],
+    ['thought', 'One static page: people, items with who shared them, and a totals section. No login, no backend.'],
+    ['edit', 'Creating index.html with the three sections'],
+    ['thought', 'Tax and tip should follow each person\'s share of the food, not be split evenly, or the person who had a salad pays for the steak.'],
+    ['edit', 'Adding tax and tip, split in proportion to each share'],
+    ['thought', 'Splitting $10 three ways gives $3.33 each and loses a cent, so I\'ll hand leftover cents to the largest remainders.'],
+    ['edit', 'Making the cents add up exactly'],
+    ['edit', 'Styling for 375px with cards and one accent color'],
+    ['edit', 'Writing the footer'],
+  ],
+  grocery: [
+    ['read', 'Reading CONTRACT.md'],
+    ['thought', 'Paste ingredients, get them grouped by aisle in the order you walk a store. Produce first, frozen and drinks last.'],
+    ['edit', 'Creating index.html with a textarea and the list'],
+    ['thought', 'A keyword map per aisle is enough: "onion" and "lime" are produce, "chicken" is meat, "rice" is pantry. First match wins.'],
+    ['edit', 'Mapping ingredients to aisles in store order'],
+    ['edit', 'Adding checkboxes and a copy button'],
+    ['edit', 'Styling for 375px with cards and one accent color'],
+    ['edit', 'Writing the footer'],
+  ],
+  parking: [
+    ['read', 'Reading CONTRACT.md'],
+    ['thought', 'Type the minutes on the meter, get a countdown. It has to survive closing the tab, so the end time goes in localStorage.'],
+    ['edit', 'Creating index.html with the minutes input and quick buttons'],
+    ['edit', 'Counting down, red under five minutes, blinking when expired'],
+    ['edit', 'Remembering the end time across reloads'],
+    ['edit', 'Styling for 375px with cards and one accent color'],
+    ['edit', 'Writing the footer'],
+  ],
 }
 
 export async function build(app: App, onLine?: (line: FeedLine) => void): Promise<string> {
   const tpl = pickTemplate(app.spec ?? app.wish.text)
   console.log(`[cline] building ${app.slug} (fake, template ${tpl})`)
   const pace = Number(process.env.FAKE_DELAY_MS ?? 700) / 2
-  for (const text of FEEDS[tpl]) {
-    await sleep(pace)
-    onLine?.({ t: Date.now(), text, file: text.includes('CONTRACT') ? 'CONTRACT.md' : 'index.html' })
+  for (const [kind, text] of FEEDS[tpl]) {
+    await sleep(kind === 'thought' ? pace * 1.4 : pace)
+    onLine?.({ t: Date.now(), text, kind, file: kind === 'thought' ? undefined : text.includes('CONTRACT') ? 'CONTRACT.md' : 'index.html' })
   }
   await fakeDelay()
   mkdirSync(appDir(app), { recursive: true })

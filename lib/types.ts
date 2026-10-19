@@ -20,10 +20,16 @@ export type Asker = { author: string; url: string; quote: string; source: string
 
 // A step's timing. Every sponsor step records one so the board can say "Cline built it in 48s".
 export type Span = { startedAt: number; endedAt?: number }
-// A Reddit post as it came back from search.
-export type Hit = { title: string; subreddit: string; author?: string; url: string; postedAt?: string }
-// One line of what Cline is doing, in plain words, from its --json output.
-export type FeedLine = { t: number; text: string; file?: string }
+// A Reddit post as it came back from search. `query` is the search that found it, `foundAt` when.
+export type Hit = { title: string; subreddit: string; author?: string; url: string; postedAt?: string; query?: string; foundAt?: number }
+// One search Parallel ran, as it ran.
+export type Search = Span & { query: string; found: number }
+// One line of what Cline is doing, from its --json output: a thought in plain words, a file it read,
+// or an edit it made. Real mapping: text/reasoning blocks → 'thought', read_file → 'read', write_to_file /
+// replace_in_file → 'edit' with the path.
+export type FeedLine = { t: number; text: string; file?: string; kind?: 'thought' | 'read' | 'edit' }
+// One line of the diff the board shows: added, removed, context, or a gap marker.
+export type DiffLine = { type: '+' | '-' | ' ' | '@'; text: string }
 // A tool Parallel looked at during the prior-art check.
 export type Checked = { name: string; url: string; verdict: string }
 
@@ -51,6 +57,7 @@ export type Issue = {
   after?: string // screenshot after, /apps/<slug>/v2.png
   // What each sponsor did on this issue, as it happened.
   change?: Span & { feed: FeedLine[] } // Cline
+  diff?: { file: string; lines: DiffLine[]; added: number; removed: number } // what actually changed in the file
   test?: Span & { checks: Check[] } // Playwright
   publish?: Span // GitHub push
   reply?: { text: string; url?: string; at: number } // the comment Genie left
@@ -89,7 +96,7 @@ export type App = {
   seeded?: boolean // a library app created by --reset in fake mode, "built yesterday"
   // What each sponsor did on this wish, as it happened. The board shows these, nothing reads them back.
   found?: Span // Parallel, the search that turned this wish up (a copy of state.discovery at the time)
-  validation?: Span & { queries: string[]; checked: Checked[]; priorArt?: 'none' | 'partial' | 'strong_existing_tool'; verdict?: string } // Parallel
+  validation?: Span & { queries: string[]; searches: Search[]; checked: Checked[]; priorArt?: 'none' | 'partial' | 'strong_existing_tool'; verdict?: string } // Parallel
   build?: Span & { feed: FeedLine[] } // Cline
   test?: Span // Playwright (the checks are app.checks)
   launch?: Span // GitHub push + Composio post
@@ -100,7 +107,9 @@ export type State = {
   apps: App[]
   pendingApproval?: { slug: string; kind: ApprovalKind; issueId?: string }
   builder?: { slug: string } // the wish the build loop is on right now (board's left side)
-  discovery?: Span & { queries: string[]; hits: Hit[] } // the last Parallel search over Reddit
+  discovery?: Span & { queries: string[]; searches: Search[]; hits: Hit[] } // the last Parallel sweep over Reddit, query by query
+  nextDiscoveryAt?: number // when the build loop sweeps Reddit again
+  watch?: { reddit?: number; github?: number } // last time each was checked; served live, not saved
   events?: { t: number; slug: string; stage: Stage }[] // every advance(), for the board's replay
   sample?: boolean // true once any fake step has run
 }

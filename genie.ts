@@ -15,6 +15,8 @@ import { askApproval, approvalsAreFake } from './steps/askApproval'
 import { build, test, snapshotVersion } from './steps/build'
 import { launch, publish, pollReports, resolveIssue } from './steps/launch'
 import { fix, stampChangelog } from './steps/fix'
+import { diffLines } from './lib/diff'
+import { appFile } from './steps/build'
 import { scrub, suspicious } from './lib/guard'
 import { routeReply, HELP, HELP_POST, HELP_ISSUE, type Reply } from './lib/reply'
 
@@ -27,6 +29,8 @@ const ONCE = args.has('--once') // demo: stop once one new app is live and one i
 
 // Reports filed by hand (POST /report). Merged with pollReports() every tick.
 const manualReports: Report[] = []
+// Last time each source was checked. Served with /state so the board can show "always on"; not written to disk.
+const watch: { reddit?: number; github?: number } = {}
 let launchedThisRun = 0
 let resolvedThisRun = 0
 
@@ -67,6 +71,8 @@ const declined = new Set<string>()
 const taken = (slug: string) => declined.has(slug) || state.apps.some((b) => b.slug === slug)
 
 async function freshQueue(): Promise<App[]> {
+  watch.reddit = Date.now()
+  delete state.nextDiscoveryAt
   const found = (await discover()).filter((a) => !taken(a.slug))
   const now = Date.now()
   for (const a of found) { a.stageAt = { found: now, ...a.stageAt }; if (state.discovery) a.found = { startedAt: state.discovery.startedAt, endedAt: state.discovery.endedAt } }
@@ -87,6 +93,8 @@ async function approveBuild(initial: App[] = []): Promise<App | null> {
     if (!next) {
       if (refreshed) {
         console.log(`[genie] nothing new to offer, looking again in ${DISCOVER_EVERY_MS / 60_000} min`)
+        state.nextDiscoveryAt = Date.now() + DISCOVER_EVERY_MS
+        save()
         await sleep(DISCOVER_EVERY_MS)
       }
       queue = await freshQueue()
@@ -219,6 +227,8 @@ async function buildLoop() {
     save()
     if (await buildAndLaunch(app, from)) launchedThisRun++
     if (ONCE) return
+    state.nextDiscoveryAt = Date.now() + DISCOVER_EVERY_MS
+    save()
     await sleep(DISCOVER_EVERY_MS)
   }
 }
@@ -247,8 +257,11 @@ async function handleIssue(app: App, issue: Issue) {
   issue.change = { startedAt: Date.now(), feed: [] }
   save()
   const feed = (line: FeedLine) => { issue.change!.feed.push(line); save() }
+  const before = readFileSync(appFile(app), 'utf8')
   await fix(app, issue, feed)
   issue.change.endedAt = Date.now()
+  issue.diff = { file: 'index.html', ...diffLines(before, readFileSync(appFile(app), 'utf8')) } // what actually changed, for the board
+  save()
   const next = app.version + 1
   const entry = stampChangelog(app, issue, next)
   issue.status = 'testing'
@@ -291,6 +304,7 @@ async function maintainLoop() {
   while (true) {
     const apps = liveApps()
     const reports = [...(apps.length ? await pollReports(apps) : []), ...manualReports.splice(0)]
+    watch.github = watch.reddit = Date.now() // issues and launch-post comments are polled together
     for (const rep of reports) {
       const app = state.apps.find((a) => a.slug === rep.slug) ?? apps[0]
       if (!app || app.issues.some((i) => i.id === rep.id)) continue
@@ -335,7 +349,7 @@ async function seedLibrary() {
     for (const st of ['found', 'validating', 'awaiting_approval', 'building', 'testing', 'awaiting_post_approval', 'launched', 'maintaining'] as Stage[]) at[st] = t0 += 40_000
     app.seeded = true
     app.stageAt = at
-    app.validation = { startedAt: at.validating!, endedAt: at.validating! + 14_000, queries: [], checked: [] }
+    app.validation = { startedAt: at.validating!, endedAt: at.validating! + 14_000, queries: [], searches: [], checked: [] }
     app.build = { startedAt: at.building!, endedAt: at.building! + 48_000, feed: [] }
     app.test = { startedAt: at.testing!, endedAt: at.testing! + 4_000 }
     app.launch = { startedAt: at.awaiting_post_approval! + 12_000, endedAt: at.launched! }
@@ -378,7 +392,7 @@ function startServer() {
     const url = new URL(req.url ?? '/', 'http://x')
     if (req.method === 'GET' && url.pathname === '/state') {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-      return res.end(JSON.stringify(state))
+      return res.end(JSON.stringify({ ...state, watch }))
     }
     // File a report by hand: POST /report?slug=<app> with the text as the body, or a JSON {slug, text, author}.
     if (req.method === 'POST' && url.pathname === '/report') {
@@ -402,8 +416,11 @@ function startServer() {
 
 async function main() {
   if (args.has('--reset')) reset()
+  watch.reddit = watch.github = Date.now() // on from the first second, seeding included
+  const beat = setInterval(() => { if (!liveApps().length) watch.reddit = watch.github = Date.now() }, 2000) // until the loops take over
   startServer()
   if (args.has('--seed') || (args.has('--reset') && approvalsAreFake())) await seedLibrary()
+  clearInterval(beat)
   await Promise.all([buildLoop(), maintainLoop()])
 }
 

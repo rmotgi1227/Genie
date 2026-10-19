@@ -1,7 +1,7 @@
 // FAKE Parallel step. Used when PARALLEL_API_KEY is empty, so `npm run demo` works without keys.
 // Saves the same shapes the real step saves (state.discovery, app.validation, app.askers), with
 // realistic sample data, so the board shows the same thing when the real results come in.
-import type { App, Asker, Checked, Hit } from '../lib/types'
+import type { App, Asker, Checked, Hit, Search, State } from '../lib/types'
 import { state, save, advance, fakeDelay, sleep, uniqueAuthors } from '../lib/state'
 import { newApp, dedupe } from './discover'
 
@@ -83,17 +83,39 @@ const NOISE: Hit[] = [
 const wishUrl = (w: FakeWish) => thread(w.subreddit, w.id, w.text.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 50))
 const QUERIES = ['I wish there was an app that', 'I wish there was a tool that', 'someone should build a website that', 'is there a tool that can']
 
+// Which query turns up which post, so the board can show Genie surfing query by query.
+const BY_QUERY: Record<string, (h: Hit) => boolean> = {
+  'I wish there was an app that': (h) => /^I wish there was an app/i.test(h.title),
+  'I wish there was a tool that': (h) => /^I wish there was a (simple|tool)/i.test(h.title),
+  'someone should build a website that': (h) => /^Someone should build/i.test(h.title),
+  'is there a tool that can': (h) => /^(Is there|Looking for)/i.test(h.title),
+}
+
 export async function discover(): Promise<App[]> {
   console.log('[parallel] searching reddit for wishes (fake)')
-  state.discovery = { startedAt: Date.now(), queries: QUERIES, hits: [] }
+  const d: NonNullable<State['discovery']> = (state.discovery = { startedAt: Date.now(), queries: QUERIES, searches: [], hits: [] })
   save()
-  await fakeDelay()
-  const hits: Hit[] = [
+  const all: Hit[] = [
     ...FAKE_WISHES.map((w) => ({ title: w.text, subreddit: w.subreddit, author: w.author, url: wishUrl(w), postedAt: ago(w.days) })),
     ...NOISE,
-  ].sort((a, b) => (b.postedAt ?? '').localeCompare(a.postedAt ?? ''))
-  state.discovery.hits = hits
-  state.discovery.endedAt = Date.now()
+  ]
+  const pace = Number(process.env.FAKE_DELAY_MS ?? 700)
+  for (const query of QUERIES) {
+    const search: Search = { query, startedAt: Date.now(), found: 0 }
+    d.searches.push(search)
+    save()
+    await sleep(pace * 0.6)
+    const mine = all.filter((h) => BY_QUERY[query]?.(h) && !d.hits.some((x) => x.url === h.url))
+    for (const h of mine) {
+      d.hits.push({ ...h, query, foundAt: Date.now() })
+      search.found++
+      save()
+      await sleep(pace * 0.25)
+    }
+    search.endedAt = Date.now()
+    save()
+  }
+  d.endedAt = Date.now()
   save()
   return FAKE_WISHES.map((w) => newApp(w.text, w.author, 'reddit', wishUrl(w)))
 }
@@ -105,25 +127,37 @@ export async function validate(candidates: App[]): Promise<App[]> {
     const w = FAKE_WISHES.find((w) => w.text === app.wish.text)
     const spec = w?.spec ?? app.wish.text
     app.spec = spec
-    app.validation = { startedAt: Date.now(), queries: [`wish there was ${spec}`, `is there an app for ${spec}`, `looking for a tool ${spec}`], checked: [] }
+    const queries = [`wish there was ${spec}`, `is there an app for ${spec}`, `looking for a tool ${spec}`]
+    const v: NonNullable<App['validation']> = (app.validation = { startedAt: Date.now(), queries, searches: [], checked: [] })
     save()
-    await fakeDelay()
-    // askers land one at a time, the way the board should show them
+    // askers land one at a time, query by query, the way the board should show them
     const found: Asker[] = [{ author: app.wish.author, url: app.wish.url, quote: app.wish.text, source: `r/${w?.subreddit ?? 'reddit'}`, postedAt: ago(w?.days ?? 2) }]
     for (const a of w?.askers ?? []) found.push({ author: a.author, url: thread(a.subreddit, a.id, a.quote.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 50)), quote: a.quote, source: `r/${a.subreddit}`, postedAt: ago(a.days) })
     found.push(found[1] ?? found[0]) // duplicate on purpose: counting must dedupe by author
+    const unique = dedupe(found)
     app.askers = []
-    for (const a of dedupe(found)) {
-      app.askers.push({ ...a, foundAt: Date.now() })
+    const pace = Number(process.env.FAKE_DELAY_MS ?? 700)
+    for (let qi = 0; qi < queries.length; qi++) {
+      const search: Search = { query: queries[qi], startedAt: Date.now(), found: 0 }
+      v.searches.push(search)
       save()
-      await sleep(Number(process.env.FAKE_DELAY_MS ?? 700) / 3)
+      await sleep(pace * 0.5)
+      // spread the askers over the three searches
+      for (const a of unique.filter((_, i) => i % queries.length === qi)) {
+        app.askers.push({ ...a, foundAt: Date.now() })
+        search.found++
+        save()
+        await sleep(pace / 3)
+      }
+      search.endedAt = Date.now()
+      save()
     }
     // then the prior-art check
     await fakeDelay()
-    app.validation.checked = w?.checked ?? []
-    app.validation.priorArt = w?.priorArt ?? 'none'
-    app.validation.verdict = w?.existing ? `Already exists: ${w.existing.name}` : w?.why || 'Nothing like it exists.'
-    app.validation.endedAt = Date.now()
+    v.checked = w?.checked ?? []
+    v.priorArt = w?.priorArt ?? 'none'
+    v.verdict = w?.existing ? `Already exists: ${w.existing.name}` : w?.why || 'Nothing like it exists.'
+    v.endedAt = Date.now()
     app.why = w?.why ?? 'You asked for it.'
     save()
     if (w?.existing) {

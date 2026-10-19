@@ -15,15 +15,28 @@ export async function fix(app: App, report: { text: string; kind?: Issue['kind']
   const html = readFileSync(appFile(app), 'utf8')
   const dark = /dark\s*mode|dark\s*theme|night\s*mode/i.test(report.text)
   const bug = !dark && /total|remove/i.test(report.text)
-  const lines = dark
-    ? ['Reading CONTRACT.md', 'Reading index.html', 'Adding a dark set of colors', 'Adding a dark mode toggle in the corner', 'Remembering the choice', 'Making dark the default']
+  type Line = [FeedLine['kind'], string]
+  const lines: Line[] = dark
+    ? [
+        ['read', 'Reading CONTRACT.md'],
+        ['read', 'Reading index.html'],
+        ['thought', 'The app sets every color through CSS variables on :root, so dark mode can be one override block instead of touching each rule.'],
+        ['thought', 'I\'ll add a toggle in the corner, remember the choice in localStorage, and make dark the default so the change shows right away.'],
+        ['edit', 'Adding the dark color set'],
+        ['edit', 'Adding the toggle button and the script that remembers the choice'],
+        ['thought', 'Inputs and placeholders pick up the dark colors too, so nothing stays white.'],
+      ]
     : bug
-      ? ['Reading index.html', 'Finding where a person is removed', 'Re-rendering the totals after a remove']
-      : ['Reading index.html', 'Looking for what to change']
+      ? [
+          ['read', 'Reading index.html'],
+          ['thought', 'removePerson() re-renders the people and the items but not the totals, so the old numbers stay on screen.'],
+          ['edit', 'Re-rendering the totals after a remove'],
+        ]
+      : [['read', 'Reading index.html'], ['thought', 'Looking for what to change']]
   const pace = Number(process.env.FAKE_DELAY_MS ?? 700) / 2
-  for (const text of lines) {
-    await sleep(pace)
-    onLine?.({ t: Date.now(), text, file: text.includes('CONTRACT') ? 'CONTRACT.md' : 'index.html' })
+  for (const [kind, text] of lines) {
+    await sleep(kind === 'thought' ? pace * 1.4 : pace)
+    onLine?.({ t: Date.now(), text, kind, file: kind === 'thought' ? undefined : text.includes('CONTRACT') ? 'CONTRACT.md' : 'index.html' })
   }
   await fakeDelay()
   let out = html

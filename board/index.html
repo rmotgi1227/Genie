@@ -31,13 +31,20 @@
   .stat { display: flex; align-items: baseline; gap: 10px; }
   .stat b { font: 600 26px/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
   .stat span { font-size: 13px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+  .watch { display: flex; align-items: center; gap: 22px; margin-left: 40px; font: 600 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .watch span { display: inline-flex; align-items: center; gap: 9px; }
+  .watch i { width: 8px; height: 8px; border-radius: 50%; background: #3fbf6a; box-shadow: 0 0 0 0 rgba(63,191,106,.5); animation: beat 2s infinite; }
+  .watch i.off { background: var(--faint); animation: none; box-shadow: none; }
+  .watch b { color: var(--text-2); font-weight: 600; }
+  .watch .hint { color: var(--faint); letter-spacing: .08em; margin-left: 6px; }
+  @keyframes beat { 0% { box-shadow: 0 0 0 0 rgba(63,191,106,.45); } 70% { box-shadow: 0 0 0 8px rgba(63,191,106,0); } 100% { box-shadow: 0 0 0 0 rgba(63,191,106,0); } }
   .clock { margin-left: auto; display: flex; align-items: baseline; gap: 14px; }
   .clock b { font: 600 32px/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
   .clock b.live { color: var(--accent); }
   .clock span { font-size: 15px; color: var(--muted); }
 
   #cols { flex: 1; min-height: 0; display: grid; grid-template-columns: 1080px 1fr; gap: 64px; margin-top: 36px; }
-  #left, #right { display: flex; flex-direction: column; min-height: 0; }
+  #left, #right { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .eyebrow { display: flex; align-items: center; gap: 12px; font: 600 12px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); height: 16px; flex: none; }
   .eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s infinite; }
   .eyebrow .n { color: var(--faint); margin-left: auto; letter-spacing: .08em; }
@@ -76,6 +83,15 @@
   .live-line i { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite; }
   .live-line .t { font: 500 14px/1 var(--mono); color: var(--faint); letter-spacing: .08em; }
 
+  .searches { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 1000px; }
+  .searches li { display: inline-flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); font: 500 14px/1 var(--mono); color: var(--muted); animation: rise var(--fast) var(--ease) both; transition: opacity var(--fast), transform var(--fast), border-color var(--fast); }
+  .searches li q { color: var(--text-2); quotes: '“' '”'; }
+  .searches li .n { color: var(--faint); }
+  .searches li.live { border-color: var(--accent); } .searches li.live .n { color: var(--accent); }
+  .searches li.live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
+  .idle { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .idle .big { font: 600 44px/1 var(--mono); color: var(--text-2); font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+  .idle .k { font: 600 12px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
   .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 1000px; }
   .card { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); text-align: left; animation: rise var(--slow) var(--ease) both; transition: opacity var(--fast), transform var(--fast), border-color var(--fast); overflow: hidden; }
   .card.hot { border-color: var(--accent); }
@@ -111,6 +127,8 @@
   .feed li:last-child .dot { background: var(--accent); animation: pulse 1.2s infinite; }
   .feed.done li:last-child .dot { animation: none; }
   .feed li .f { margin-left: auto; font: 500 12px/1 var(--mono); color: var(--muted); padding: 5px 7px; border: 1px solid var(--line-2); border-radius: 4px; white-space: nowrap; }
+  .feed li.thought { background: transparent; border-style: dashed; color: var(--text-2); font-style: italic; }
+  .feed li.thought .dot { background: var(--line-2); }
   .feed.small { width: 100%; gap: 6px; } .feed.small li { font-size: 16px; padding: 9px 14px; }
   .feed.small li .f { font-size: 11px; }
 
@@ -142,8 +160,8 @@
   .status { font-size: 32px; color: var(--muted); }
 
   /* ── right: library ── */
-  #library { list-style: none; margin: 22px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; flex: none; }
-  .lib-row { position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; height: 48px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); animation: rise var(--fast) var(--ease) both; transition: opacity var(--fast), transform var(--fast), border-color var(--fast); }
+  #library { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; flex: none; }
+  .lib-row { position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; height: 42px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); animation: rise var(--fast) var(--ease) both; transition: opacity var(--fast), transform var(--fast), border-color var(--fast); }
   .lib-row .name { flex: 1; min-width: 0; font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.01em; }
   .lib-row .v { font: 600 12px/1 var(--mono); letter-spacing: .08em; color: var(--muted); padding: 5px 7px; border: 1px solid var(--line-2); border-radius: 5px; }
   .lib-row.bumped .v { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
@@ -153,12 +171,12 @@
   .lib-row.new .st i { background: var(--accent); }
 
   /* ── right: the request being worked on ── */
-  #issue { flex: 1; min-height: 0; margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
+  #issue { flex: 1; min-height: 0; margin-top: 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
   #watching { margin-top: auto; margin-bottom: auto; align-self: center; }
-  .req { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--panel); animation: rise var(--slow) var(--ease) both; }
+  .req { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--panel); animation: rise var(--slow) var(--ease) both; }
   .req .k { display: flex; gap: 10px; align-items: center; }
   .req .k .gh { width: 22px; height: 22px; border-radius: 50%; background: var(--text); color: var(--bg); display: grid; place-items: center; font: 700 10px/1 var(--mono); flex: none; }
-  .req q { font-size: 24px; font-weight: 700; letter-spacing: -.03em; line-height: 1.15; quotes: '“' '”'; text-align: left; }
+  .req q { font-size: 22px; font-weight: 700; letter-spacing: -.03em; line-height: 1.15; quotes: '“' '”'; text-align: left; }
   .req .on { font-size: 14px; color: var(--muted); display: flex; gap: 8px; }
   .req .on b { color: var(--text-2); font-weight: 600; }
   .req .on .u { margin-left: auto; font: 500 12px/1.4 var(--mono); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
@@ -171,6 +189,23 @@
   .working { position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); font-size: 18px; animation: rise var(--fast) var(--ease) both; }
   .working .box { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--accent); flex: none; }
   .working .by { margin-left: auto; font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .rpreview { position: relative; width: 100%; height: 260px; border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid var(--line); flex: none; transition: height var(--slow) var(--ease); }
+  .rpreview.mini { height: 150px; }
+  .rpreview iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; opacity: 0; transition: opacity var(--slow) var(--ease); pointer-events: none; }
+  .rpreview iframe.on { opacity: 1; }
+  .rpreview .vtag { top: 10px; right: 10px; }
+  .rpreview .vtag.new { background: var(--accent); color: var(--accent-ink); }
+  .rpreview .nm { position: absolute; left: 10px; top: 10px; z-index: 2; font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 6px 8px; border-radius: 5px; background: rgba(13,12,10,.85); color: var(--text-2); border: 1px solid var(--line-2); }
+  .diff { margin: 0; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: #0a0a09; font: 500 12.5px/1.5 var(--mono); text-align: left; overflow: hidden; animation: rise var(--fast) var(--ease) both; }
+  .diff .dh { display: flex; gap: 12px; align-items: center; padding: 0 14px 8px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+  .diff .dh .add { color: #3fbf6a; } .diff .dh .del { color: #e5655b; }
+  .diff .l { display: flex; gap: 10px; padding: 0 14px; color: var(--muted); min-width: 0; }
+  .diff .l span { white-space: pre; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .diff .l::before { content: attr(data-s); width: 10px; flex: none; color: var(--faint); }
+  .diff .l.add { background: rgba(63,191,106,.12); color: #bfe8cc; } .diff .l.add::before { color: #3fbf6a; }
+  .diff .l.del { background: rgba(229,101,91,.12); color: #f0c0bb; } .diff .l.del::before { color: #e5655b; }
+  .diff .l.gap { color: var(--faint); font-style: italic; }
+  .diff.compact .l { display: none; } .diff.compact .dh { border: 0; padding-bottom: 0; margin: 0; }
   .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; animation: rise var(--slow) var(--ease) both; }
   .shot { position: relative; height: 290px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: var(--panel); }
   .shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
@@ -212,6 +247,7 @@
     <div class="wordmark">Genie</div>
     <span id="sample" class="chip hide">Sample</span>
     <div class="stats" id="stats"></div>
+    <div class="watch" id="watch"></div>
     <div class="clock" id="clock"></div>
   </header>
   <div id="cols">
@@ -220,7 +256,9 @@
       <ol id="rail"><div class="fill"></div></ol>
       <div id="focus">
         <div id="wish" class="wish quiet">Listening for wishes…</div>
+        <div id="idle" class="idle hide"></div>
         <div id="searching" class="live-line hide"><i></i><span></span><span class="t"></span></div>
+        <ul id="searches" class="searches hide"></ul>
         <div id="hits" class="cards hide"></div>
         <div id="count" class="count hide"><b data-v="0">0</b><span>people asked for this</span></div>
         <div id="askers" class="cards hide"></div>
@@ -236,6 +274,7 @@
     <section id="right">
       <div class="eyebrow"><span>Library</span><span class="n" id="rightN"></span></div>
       <ol id="library"></ol>
+      <div id="rpreview" class="rpreview hide"></div>
       <div id="issue">
         <div id="watching" class="live-line"><i></i><span>Watching GitHub issues and r/GenieGrants</span></div>
       </div>
@@ -344,6 +383,9 @@ function request(s) {
 const approvalOf = (app, kind, issueId) => (app.approvals ?? []).filter((x) => x.kind === kind && (!issueId || x.issueId === issueId)).at(-1)
 const span = (x) => x?.askedAt ? { startedAt: x.askedAt, endedAt: x.repliedAt } : null
 const head = (html) => ({ key: 'h', tag: 'li', cls: 'tag', html })
+const FRESH_MS = 12_000 // a heartbeat older than this means Genie isn't running
+const searchItems = (searches = []) => searches.map((q) => ({ key: q.query, tag: 'li', cls: q.endedAt ? '' : 'live', html: `<q>${esc(q.query)}</q><span class="n">${q.endedAt ? `${q.found} post${q.found === 1 ? '' : 's'}` : 'searching'} · ${dur(q)}</span>` }))
+const feedItem = (l) => ({ key: `${l.t}${l.text}`, tag: 'li', cls: l.kind === 'thought' ? 'thought' : '', html: `<span class="dot"></span><span>${esc(l.text)}</span>${l.file ? `<span class="f">${esc(l.file)}</span>` : ''}` })
 
 // ── rail ──
 $('#rail').insertAdjacentHTML('beforeend', STEPS.map((st, i) => `<li class="step" id="step${i}"><span class="dot">${CHECK}</span><span class="l">${st.label}</span><span class="by"></span></li>`).join(''))
@@ -372,6 +414,16 @@ function renderRail(s, app) {
   $('#rail .fill').style.width = at <= 0 ? '0' : `calc(${Math.min(at, 5)} * 100% / 6)`
 }
 
+// ── always on ──
+function renderWatch(s) {
+  const now = NOW()
+  const on = (t) => replaying || (t && now - t < FRESH_MS)
+  const w = s.watch ?? {}
+  const sweep = s.nextDiscoveryAt && s.nextDiscoveryAt > now ? ` · next sweep in ${mmss(s.nextDiscoveryAt - now)}` : ''
+  const html = `<span><i class="${on(w.reddit) ? '' : 'off'}"></i>Watching <b>Reddit</b>${sweep}</span><span><i class="${on(w.github) ? '' : 'off'}"></i>Watching <b>GitHub</b></span>${!on(w.reddit) && !on(w.github) && !replaying ? `<span class="hint">Offline</span>` : `<span class="hint">${replaying ? 'Replay · Space to stop' : 'Always on · Space replays'}</span>`}`
+  setHTML($('#watch'), html)
+}
+
 // ── clock ──
 let clockApp = null
 function tickClock() {
@@ -382,7 +434,7 @@ function tickClock() {
   setHTML(el, html)
 }
 // Running timers ("Cline 0:12") refresh twice a second without a new state.
-setInterval(() => { tickClock(); if (lastRender && !replaying) renderLive(lastRender) }, 500)
+setInterval(() => { tickClock(); if (lastRender) { renderWatch(lastRender); if (!replaying) renderLive(lastRender) } }, 500)
 
 // ── left ──
 let previewKey = ''
@@ -399,7 +451,7 @@ function renderPreview(app) {
 }
 const hitCard = (h, hot) => ({ key: h.url, tag: 'a', cls: `card ${hot ? 'hot' : ''}`, attrs: { href: h.url, target: '_blank', rel: 'noopener' }, html: `<div class="h">${esc(h.title)}</div><div class="m"><b>r/${esc(h.subreddit)}</b>${h.author ? `<span>u/${esc(h.author)}</span>` : ''}<span>${ago(h.postedAt)}</span><span class="u">${esc(short(h.url))}</span></div>` })
 const askerCard = (k) => ({ key: k.author.toLowerCase(), tag: 'a', cls: 'card', attrs: { href: k.url, target: '_blank', rel: 'noopener' }, html: `<div class="m"><span class="av" style="background:${AV_COLORS[hash(k.author) % AV_COLORS.length]}">${esc(initials(k.author))}</span><b>u/${esc(k.author)}</b><span>${esc(k.source && k.source !== 'reddit' ? k.source : `r/${sub(k.url) ?? 'reddit'}`)}</span><span>${ago(k.postedAt)}</span><span class="u">${esc(short(k.url))}</span></div><q>${esc(k.quote)}</q>` })
-const feedItems = (feed, max) => feed.slice(-max).map((l) => ({ key: `${l.t}${l.text}`, tag: 'li', html: `<span class="dot"></span><span>${esc(l.text)}</span>${l.file ? `<span class="f">${esc(l.file)}</span>` : ''}` }))
+const feedItems = (feed, max) => feed.slice(-max).map(feedItem)
 const checkItems = (checks, live) => {
   const items = checks.map((c) => ({ key: c.label, tag: 'li', cls: `check ${c.ok ? 'ok' : 'bad'}`, html: `<span class="box">${CHECK}</span>${esc(c.label)}` }))
   if (live) items.push({ key: 'live', tag: 'li', cls: 'check live', html: `<span class="box"></span>${esc(live)}` })
@@ -413,30 +465,43 @@ function renderLeft(s, app) {
   tickClock()
   setText($('#leftN'), app && s.candidates.length > 1 ? `${s.candidates.filter((a) => a.stage !== 'exists').length} candidates` : '')
 
-  // 1. the search: the wish, big, with the posts Parallel found
+  // 1. surfing Reddit: each search as it runs, the posts as they come back, the wish once it's picked
   const d = s.discovery
   const searching = stage === 'none' || ((stage === 'found' || stage === 'validating') && n === 0)
-  show($('#wish'), searching)
-  if (searching) {
-    const html = app ? `${esc(app.wish.text)}${app.wish.author ? `<span class="who">u/${esc(app.wish.author)} · r/${esc(sub(app.wish.url) ?? 'reddit')}</span>` : ''}` : (d && !d.endedAt ? 'Reading Reddit…' : 'Listening for wishes…')
+  const sweeping = !!d && !d.endedAt
+  const waiting = stage === 'none' && !sweeping && !!s.nextDiscoveryAt && s.nextDiscoveryAt > NOW()
+  show($('#wish'), searching && !!app)
+  if (searching && app) {
+    const html = `${esc(app.wish.text)}${app.wish.author ? `<span class="who">u/${esc(app.wish.author)} · r/${esc(sub(app.wish.url) ?? 'reddit')}</span>` : ''}`
     if ($('#wish').innerHTML !== html) { $('#wish').innerHTML = html; $('#wish').classList.add('in') }
-    $('#wish').classList.toggle('quiet', !app)
+    $('#wish').classList.remove('quiet')
+  }
+  show($('#idle'), searching && !app)
+  if (searching && !app) {
+    const html = waiting ? `<span class="k">Always on · next Reddit sweep in</span><span class="big">${mmss(s.nextDiscoveryAt - NOW())}</span>` : sweeping ? `<span class="k">Surfing Reddit</span><span class="big">${d.hits.length}</span><span class="k">posts so far</span>` : `<span class="k">${d ? `Last sweep read ${d.hits.length} posts` : 'Listening for wishes'}</span>`
+    setHTML($('#idle'), html)
   }
   const hits = searching && d ? d.hits ?? [] : []
   show($('#searching'), searching && !!(app || d))
   if (searching && (app || d)) {
-    const txt = !app ? (d?.endedAt ? `Parallel read ${hits.length} posts, picking a wish` : `Parallel is searching Reddit`) : stage === 'found' ? `Parallel found it in ${hits.length} posts` : `Parallel is looking for other people who asked`
+    const txt = !app ? (sweeping ? `Parallel is searching Reddit` : `Parallel read ${hits.length} posts, picking a wish`) : stage === 'found' ? `Parallel found it in ${hits.length} posts` : `Parallel is looking for other people who asked`
     setText($('#searching span'), txt)
     setText($('#searching .t'), stage === 'validating' && app?.validation ? dur(app.validation) : dur(d))
   }
+  const qs = searching ? (stage === 'validating' && app?.validation ? app.validation.searches : d?.searches) ?? [] : []
+  show($('#searches'), qs.length > 0)
+  if (qs.length) sync($('#searches'), searchItems(qs))
   show($('#hits'), searching && hits.length > 0)
-  if (searching && hits.length) sync($('#hits'), hits.slice(0, 8).map((h) => hitCard(h, app && h.url === app.wish.url)))
+  if (searching && hits.length) sync($('#hits'), hits.slice(-8).reverse().map((h) => hitCard(h, app && h.url === app.wish.url)))
 
   // 2. validation: askers as they're found, the counter, then the prior-art verdict
   const peopleStage = n > 0 && ['validating', 'exists'].includes(stage)
   show($('#count'), peopleStage)
   show($('#askers'), peopleStage)
   if (peopleStage) {
+    const vq = app.validation?.searches ?? []
+    show($('#searches'), vq.length > 0)
+    if (vq.length) sync($('#searches'), searchItems(vq))
     tween($('#count b'), n, Math.max(400, n * 120))
     const seen = new Set(); const uniqAskers = app.askers.filter((k) => { const key = k.author.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
     sync($('#askers'), uniqAskers.slice(0, 8).map(askerCard))
@@ -502,6 +567,25 @@ function renderLeft(s, app) {
 }
 
 // ── right ──
+let rpreviewKey = ''
+function renderRPreview(app, label, mini) {
+  const box = $('#rpreview')
+  show(box, !!app?.url)
+  if (!app?.url) { box.innerHTML = ''; rpreviewKey = ''; return }
+  box.classList.toggle('mini', !!mini)
+  const key = `${app.slug}@${app.version}`
+  if (rpreviewKey !== key) {
+    const old = box.querySelector('iframe')
+    const f = document.createElement('iframe'); f.src = `${app.url}?v=${app.version}`
+    f.addEventListener('load', () => { f.classList.add('on'); if (old) setTimeout(() => old.remove(), 560) }, { once: true })
+    box.prepend(f)
+    let tag = box.querySelector('.vtag'); if (!tag) { tag = document.createElement('div'); tag.className = 'vtag'; box.append(tag) }
+    tag.textContent = `v${app.version}`; tag.classList.toggle('new', app.version > 1 && rpreviewKey.startsWith(`${app.slug}@`)); tag.style.animation = 'none'; void tag.offsetWidth; tag.style.animation = ''
+    rpreviewKey = key
+  }
+  let nm = box.querySelector('.nm'); if (!nm) { nm = document.createElement('div'); nm.className = 'nm'; box.append(nm) }
+  setText(nm, label)
+}
 function renderRight(s) {
   const live = s.apps.filter(LIVE).sort((a, b) => (a.stageAt?.launched ?? 0) - (b.stageAt?.launched ?? 0))
   setText($('#rightN'), live.length ? `looking after ${live.length} app${live.length > 1 ? 's' : ''}` : '')
@@ -515,17 +599,29 @@ function renderRight(s) {
   }))
 
   const req = request(s)
-  show($('#watching'), !req)
   const box = $('#issue')
-  if (!req) { sync(box, []); return }
+  // 1. the app Genie is looking at: the one with the request, else the one it looked after last, else the newest
+  const focus = req?.app ?? live[0]
+  if (!req) {
+    renderRPreview(focus, focus ? `${name(focus)} · running` : '', false)
+    show($('#watching'), true)
+    sync(box, [])
+    return
+  }
   const { app, issue } = req
   const st = issue.status
+  const working = ['awaiting_approval', 'fixing', 'testing', 'shipping'].includes(st)
+  renderRPreview(app, st === 'fixed' ? `${name(app)} · updated` : `${name(app)} · running`, working || st === 'triaged')
+  show($('#watching'), false)
+
+  // 2. the request as Genie saw it
   const num = issue.url?.match(/issues\/(\d+)/)?.[1]
   const where = issue.source === 'github' ? 'GitHub' : issue.source === 'reddit' ? 'r/GenieGrants' : 'iMessage'
   const who = issue.author ? `${issue.source === 'reddit' ? 'u/' : '@'}${esc(issue.author.replace(/^[@]|^u\//, ''))}` : ''
   const verb = issue.kind === 'bug' ? 'fixing' : 'adding'
-  const items = [{ key: issue.id, tag: 'a', cls: 'req', attrs: { href: issue.url ?? '#', target: '_blank', rel: 'noopener' }, html: `<div class="k"><span class="gh">${issue.source === 'github' ? 'gh' : 'r/'}</span><span class="tag"><b>${issue.kind === 'bug' ? 'Bug report' : 'Feature request'}</b> · ${esc(where)}${num ? ` #${num}` : ''}${who ? ` · ${who}` : ''} · ${ago(issue.reportedAt)}</span></div><q>${esc(issue.text)}</q><div class="on">on <b>${esc(name(app))}</b><span class="u">${esc(short(issue.url))}</span></div>` }]
+  const items = [{ key: issue.id, tag: 'a', cls: 'req', attrs: { href: issue.url ?? '#', target: '_blank', rel: 'noopener' }, html: `<div class="k"><span class="gh">${issue.source === 'github' ? 'gh' : 'r/'}</span><span class="tag"><b>${issue.kind === 'bug' ? 'Bug report' : 'Feature request'}</b> · ${esc(where)}${num ? ` #${num}` : ''}${who ? ` · ${who}` : ''} · ${ago(issue.reportedAt)}</span></div><q>${esc(issue.text)}</q>${st === 'fixed' || st === 'declined' ? '' : `<div class="on">on <b>${esc(name(app))}</b><span class="u">${esc(short(issue.url))}</span></div>`}` }]
 
+  // 3. the approval
   const x = approvalOf(app, 'issue', issue.id)
   if (st === 'awaiting_approval' && x) {
     const ph = [{ key: `q`, cls: 'bubble them', html: esc(x.text) }]
@@ -534,17 +630,28 @@ function renderRight(s) {
   } else if (x?.reply) {
     items.push({ key: `said-${issue.id}`, cls: 'said', html: `You said <b>${esc(x.reply)}</b><span class="t">Photon · ${dur(span(x))}</span>` })
   }
+
+  // 4. Cline's reasoning, then what it changed
   const feed = issue.change?.feed ?? []
-  if ((st === 'fixing' || st === 'testing') && feed.length) {
+  if ((st === 'fixing' || st === 'testing' || st === 'shipping') && feed.length) {
     items.push({ key: `feed-${issue.id}`, tag: 'ul', cls: `feed small ${st === 'fixing' ? '' : 'done'}`, html: '', children: [head(`<b>Cline</b> ${verb} ${esc(issue.title)} <span class="t">${dur(issue.change)}</span>`), ...feedItems(feed, st === 'fixing' ? 4 : 1)] })
   }
+  const df = issue.diff
+  if (df && st !== 'declined') {
+    const compact = st !== 'fixing' && st !== 'testing' ? false : st === 'testing'
+    const shown = st === 'fixed' ? df.lines.slice(0, 6) : df.lines.slice(0, 9)
+    const rows = shown.map((l) => `<div class="l ${l.type === '+' ? 'add' : l.type === '-' ? 'del' : l.type === '@' ? 'gap' : ''}" data-s="${l.type === '@' ? '' : l.type}"><span>${esc(l.text)}</span></div>`).join('')
+    const more = df.lines.length - shown.length
+    items.push({ key: `diff-${issue.id}`, cls: `diff ${compact ? 'compact' : ''}`, html: `<div class="dh"><span class="tag"><b>${esc(df.file)}</b></span><span class="tag add">+${df.added}</span><span class="tag del">−${df.removed}</span><span class="tag" style="margin-left:auto">Cline · ${dur(issue.change)}</span></div>${rows}${more > 0 ? `<div class="l gap" data-s="">… ${more} more lines</div>` : ''}` })
+  }
+
+  // 5. tested, shipped, replied
   if (st === 'testing') {
     const done = issue.test?.checks ?? []
     const next = !issue.test?.endedAt ? CHECK_LABELS[done.length] : null
     items.push({ key: `checks-${issue.id}`, tag: 'ul', cls: 'checks small', html: '', children: [head(`<b>Playwright</b> is testing it again <span class="t">${dur(issue.test)}</span>`), ...checkItems(done, next)] })
   }
   if (st === 'shipping') items.push({ key: `work-${issue.id}`, cls: 'working', html: `<span class="box"></span><span>Shipping v${app.version}</span><span class="by">GitHub · ${dur(issue.publish)}</span>` })
-  if (st === 'fixed' && issue.before && issue.after) items.push({ key: `shots-${issue.id}`, cls: 'shots', html: `<div class="shot"><img src="${esc(issue.before)}" alt=""><span class="lab">Before · v${issue.version - 1}</span></div><div class="shot after"><img src="${esc(issue.after)}" alt=""><span class="lab">After · v${issue.version}</span></div>` })
   if (st === 'fixed' || st === 'declined') {
     const r = issue.reply
     const times = st === 'fixed' ? [['Cline', dur(issue.change)], ['Playwright', dur(issue.test)], ['GitHub', dur(issue.publish)]].filter(([, d]) => d).map(([b, d]) => `${b} ${d}`).join(' · ') : ''
@@ -586,13 +693,13 @@ function render(s) {
   lastRender = s
   const app = building(s)
   show($('#sample'), !!s.sample)
-  renderRail(s, app); renderLeft(s, app); renderRight(s); renderFooter(s, app); renderQR(s)
+  renderRail(s, app); renderLeft(s, app); renderRight(s); renderFooter(s, app); renderQR(s); renderWatch(s)
 }
 // Re-renders only the parts with running timers.
 function renderLive(s) {
   const app = building(s)
   renderRail(s, app)
-  if (app && ['found', 'validating', 'awaiting_approval', 'building', 'testing', 'awaiting_post_approval'].includes(app.stage)) renderLeft(s, app)
+  if (!app || ['found', 'validating', 'awaiting_approval', 'building', 'testing', 'awaiting_post_approval'].includes(app.stage)) renderLeft(s, app)
   const r = request(s)
   if (r && OPEN.includes(r.issue.status)) renderRight(s)
 }
@@ -609,6 +716,8 @@ async function tick() {
 tick()
 
 // What the state looked like at time t. Seeded apps were "built yesterday" and only their issues move.
+// searches as they stood at t: not started → gone, running → no end, found = items found so far
+const searchesAt = (searches = [], t, items, key) => searches.filter((q) => q.startedAt <= t).map((q) => ({ ...upto(q, t), found: items.filter((h) => h.query === q.query && (h[key] ?? 0) <= t).length || (q.endedAt && q.endedAt <= t ? q.found : 0) }))
 const upto = (span, t) => span?.startedAt && span.startedAt <= t ? { ...span, endedAt: span.endedAt && span.endedAt <= t ? span.endedAt : undefined } : undefined
 function rewind(s, t) {
   const ev = (s.events ?? []).filter((e) => e.t <= t)
@@ -616,9 +725,10 @@ function rewind(s, t) {
     if (i.status === 'ignored') return i
     if ((i.resolvedAt ?? Infinity) <= t) return i
     const change = upto(i.change, t), test = upto(i.test, t), publish = upto(i.publish, t)
+    const diff = change?.endedAt ? i.diff : undefined
     const status = (i.fixedAt ?? Infinity) <= t ? 'fixed' : publish ? 'shipping' : test ? 'testing' : (i.repliedAt ?? Infinity) <= t ? 'fixing' : (i.askedAt ?? Infinity) <= t ? 'awaiting_approval' : 'triaged'
     const fixed = status === 'fixed'
-    return { ...i, status, change: change && { ...change, feed: (change.feed ?? []).filter((l) => l.t <= t) }, test: test && { ...test, checks: (test.checks ?? []).filter((c) => (c.at ?? 0) <= t) }, publish, reply: i.reply && i.reply.at <= t ? i.reply : undefined, closedAt: i.closedAt && i.closedAt <= t ? i.closedAt : undefined, fixedAt: fixed ? i.fixedAt : undefined, resolvedAt: undefined, version: fixed ? i.version : undefined, after: fixed ? i.after : undefined }
+    return { ...i, status, diff, change: change && { ...change, feed: (change.feed ?? []).filter((l) => l.t <= t) }, test: test && { ...test, checks: (test.checks ?? []).filter((c) => (c.at ?? 0) <= t) }, publish, reply: i.reply && i.reply.at <= t ? i.reply : undefined, closedAt: i.closedAt && i.closedAt <= t ? i.closedAt : undefined, fixedAt: fixed ? i.fixedAt : undefined, resolvedAt: undefined, version: fixed ? i.version : undefined, after: fixed ? i.after : undefined }
   })
   const approvalsAt = (a) => (a.approvals ?? []).filter((x) => x.askedAt <= t).map((x) => (x.repliedAt && x.repliedAt <= t ? x : { ...x, reply: undefined, repliedAt: undefined }))
   const map = (a) => {
@@ -638,7 +748,7 @@ function rewind(s, t) {
     return {
       ...a, stage, stageAt, approvals: approvalsAt(a), issues, version,
       askers: (a.askers ?? []).filter((k) => (k.foundAt ?? (stage === 'found' ? Infinity : 0)) <= t),
-      validation: validation && { ...validation, checked: validation.endedAt ? validation.checked : [], verdict: validation.endedAt ? validation.verdict : undefined },
+      validation: validation && { ...validation, searches: searchesAt(validation.searches, t, (a.askers ?? []), 'foundAt'), checked: validation.endedAt ? validation.checked : [], verdict: validation.endedAt ? validation.verdict : undefined },
       build: build && { ...build, feed: (build.feed ?? []).filter((l) => l.t <= t) },
       found: upto(a.found, t), test: upto(a.test, t), launch: upto(a.launch, t),
       checks: (a.checks ?? []).filter((c) => (c.at ?? 0) <= t),
@@ -651,11 +761,13 @@ function rewind(s, t) {
   // the left side follows the wish the loop ended up building, as soon as it has appeared
   const chosen = s.builder && ev.some((e) => e.slug === s.builder.slug) ? s.builder.slug : [...ev].reverse().find((e) => !s.apps.find((a) => a.slug === e.slug)?.seeded)?.slug
   const discovery = upto(s.discovery, t)
-  return { ...s, apps, candidates, discovery: discovery && { ...discovery, hits: discovery.endedAt ? discovery.hits : [] }, builder: chosen ? { slug: chosen } : undefined, pendingApproval: pend ? { slug: pend.slug, kind: pend.approvals.at(-1).kind } : undefined }
+  const hits = (discovery?.hits ?? []).filter((h) => (h.foundAt ?? discovery.endedAt ?? Infinity) <= t)
+  return { ...s, apps, candidates, nextDiscoveryAt: undefined, discovery: discovery && { ...discovery, hits, searches: searchesAt(discovery.searches, t, hits, 'foundAt') }, builder: chosen ? { slug: chosen } : undefined, pendingApproval: pend ? { slug: pend.slug, kind: pend.approvals.at(-1).kind } : undefined }
 }
 function resetBoard() {
   keyed.clear(); qrFor = ''; previewKey = ''; NOW = () => Date.now()
-  for (const id of ['hits', 'askers', 'verdict', 'summary', 'phone', 'feed', 'checks', 'preview', 'postLine', 'made', 'stats', 'heard', 'qr', 'library']) $('#' + id).innerHTML = ''
+  rpreviewKey = ''
+  for (const id of ['hits', 'searches', 'idle', 'askers', 'verdict', 'summary', 'phone', 'feed', 'checks', 'preview', 'postLine', 'made', 'stats', 'heard', 'qr', 'library', 'rpreview', 'watch']) $('#' + id).innerHTML = ''
   for (const el of [...$('#issue').children]) if (el.id !== 'watching') el.remove() // copy first: removing while iterating a live collection skips nodes
   $('#wish').innerHTML = ''; $('#count b').dataset.v = 0; $('#count b').textContent = '0'
   for (let i = 0; i < 6; i++) $(`#step${i}`).className = 'step'
@@ -667,13 +779,14 @@ async function replay() {
   if (!live || replaying) return
   const s = live, run = ++replayRun
   const times = new Set()
-  if (s.discovery) { times.add(s.discovery.startedAt); if (s.discovery.endedAt) times.add(s.discovery.endedAt) }
+  if (s.discovery) { times.add(s.discovery.startedAt); if (s.discovery.endedAt) times.add(s.discovery.endedAt); for (const q of s.discovery.searches ?? []) { times.add(q.startedAt); if (q.endedAt) times.add(q.endedAt) }; for (const h of s.discovery.hits ?? []) if (h.foundAt) times.add(h.foundAt) }
   for (const e of s.events ?? []) times.add(e.t)
   for (const a of [...s.apps, ...s.candidates]) {
     if (!a.seeded) {
       for (const x of a.approvals ?? []) { times.add(x.askedAt); if (x.repliedAt) times.add(x.repliedAt) }
       for (const k of a.askers ?? []) if (k.foundAt) times.add(k.foundAt)
       for (const sp of [a.validation, a.build, a.test, a.launch]) if (sp) { times.add(sp.startedAt); if (sp.endedAt) times.add(sp.endedAt) }
+      for (const q of a.validation?.searches ?? []) { times.add(q.startedAt); if (q.endedAt) times.add(q.endedAt) }
       for (const l of a.build?.feed ?? []) times.add(l.t)
       for (const c of a.checks ?? []) if (c.at) times.add(c.at)
     }

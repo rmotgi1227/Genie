@@ -8,7 +8,7 @@
 // Reddit's own JSON/RSS endpoints are blocked without auth, so authors come from Parallel.
 // With no PARALLEL_API_KEY the fake versions in discover.fake.ts run instead.
 import { writeFileSync, mkdirSync } from 'node:fs'
-import type { App, Asker, Hit } from '../lib/types'
+import type { App, Asker, Search, State } from '../lib/types'
 import { state, save, advance, slugify, uniqueAuthors } from '../lib/state'
 import { parallelEnabled, search, respond, obj, str, bool, en, arr, type SearchHit } from '../lib/parallel'
 import { scrub } from '../lib/guard'
@@ -70,15 +70,26 @@ type Grouped = {
 export async function discover(): Promise<App[]> {
   if (!parallelEnabled()) return fake.discover()
   console.log('[parallel] searching reddit for wishes')
-  state.discovery = { startedAt: Date.now(), queries: DISCOVERY_QUERIES, hits: [] }
+  const d: NonNullable<State['discovery']> = (state.discovery = { startedAt: Date.now(), queries: DISCOVERY_QUERIES, searches: [], hits: [] })
   save()
   const after = new Date(Date.now() - DAYS_BACK * 864e5).toISOString().slice(0, 10)
-  const hits = (await search({ objective: DISCOVERY_OBJECTIVE, queries: DISCOVERY_QUERIES, domains: REDDIT, maxResults: 25, afterDate: after }))
-    .filter((h) => isThread(h.url))
+  // one call per query, so the board shows each search as it runs and the posts as they come back
+  const hits: SearchHit[] = []
+  for (const query of DISCOVERY_QUERIES) {
+    const s: Search = { query, startedAt: Date.now(), found: 0 }
+    d.searches.push(s)
+    save()
+    const got = (await search({ objective: DISCOVERY_OBJECTIVE, queries: [query], domains: REDDIT, maxResults: 8, afterDate: after })).filter((h) => isThread(h.url) && !hits.some((x) => canon(x.url) === canon(h.url)))
+    for (const h of got) {
+      hits.push(h)
+      d.hits.push({ title: scrub(h.title ?? '', 200).replace(/\s*:\s*r\/\w+\s*$/, ''), subreddit: sub(h.url), author: authorFromText(h.excerpts.join(' ')), url: canon(h.url), postedAt: h.publish_date ?? undefined, query, foundAt: Date.now() })
+    }
+    s.found = got.length
+    s.endedAt = Date.now()
+    save()
+  }
   dump('discover.search', hits)
-  // the board shows the posts as they came back
-  state.discovery.hits = hits.map<Hit>((h) => ({ title: scrub(h.title ?? '', 200).replace(/\s*:\s*r\/\w+\s*$/, ''), subreddit: sub(h.url), author: authorFromText(h.excerpts.join(' ')), url: canon(h.url), postedAt: h.publish_date ?? undefined }))
-  state.discovery.endedAt = Date.now()
+  d.endedAt = Date.now()
   save()
   console.log(`[parallel] ${hits.length} reddit threads, grouping into wishes`)
 
@@ -135,16 +146,23 @@ type Extracted = {
 async function findAskers(app: App): Promise<{ askers: Asker[]; why: string; prior: Extracted['prior_art']; existing: Extracted['best_existing_tool'] }> {
   const spec = app.spec ?? app.wish.text
   const queries = [`wish there was ${spec}`, `is there an app for ${spec}`, `looking for a tool ${spec}`]
-  app.validation = { startedAt: Date.now(), queries, checked: [] }
+  const v: NonNullable<App['validation']> = (app.validation = { startedAt: Date.now(), queries, searches: [], checked: [] })
   save()
-  const hits = (await search({
-    objective: `Reddit posts by different people asking for or wishing for ${spec}. Only posts where the author wants this tool to exist.`,
-    queries,
-    domains: REDDIT,
-    maxResults: 12,
-  })).filter((h) => isThread(h.url))
   const byUrl = new Map<string, SearchHit>()
-  for (const h of hits) byUrl.set(canon(h.url), h)
+  for (const query of queries) {
+    const s: Search = { query, startedAt: Date.now(), found: 0 }
+    v.searches.push(s)
+    save()
+    const got = (await search({
+      objective: `Reddit posts by different people asking for or wishing for ${spec}. Only posts where the author wants this tool to exist.`,
+      queries: [query],
+      domains: REDDIT,
+      maxResults: 6,
+    })).filter((h) => isThread(h.url))
+    for (const h of got) if (!byUrl.has(canon(h.url))) { byUrl.set(canon(h.url), h); s.found++ }
+    s.endedAt = Date.now()
+    save()
+  }
   if (app.wish.url && !byUrl.has(canon(app.wish.url))) byUrl.set(canon(app.wish.url), { url: app.wish.url, title: app.wish.text, publish_date: null, excerpts: [app.wish.text] })
   dump(`validate.${app.slug}.search`, [...byUrl.values()])
 
@@ -177,10 +195,10 @@ async function findAskers(app: App): Promise<{ askers: Asker[]; why: string; pri
   }
   const unique = dedupe(askers)
   app.askers = unique
-  app.validation.checked = x.best_existing_tool?.name ? [{ name: x.best_existing_tool.name, url: x.best_existing_tool.url, verdict: x.best_existing_tool.why }] : []
-  app.validation.priorArt = x.prior_art
-  app.validation.verdict = x.prior_art === 'strong_existing_tool' ? `Already exists: ${x.best_existing_tool.name}` : x.why_build_it
-  app.validation.endedAt = Date.now()
+  v.checked = x.best_existing_tool?.name ? [{ name: x.best_existing_tool.name, url: x.best_existing_tool.url, verdict: x.best_existing_tool.why }] : []
+  v.priorArt = x.prior_art
+  v.verdict = x.prior_art === 'strong_existing_tool' ? `Already exists: ${x.best_existing_tool.name}` : x.why_build_it
+  v.endedAt = Date.now()
   save()
   return { askers: unique, why: x.why_build_it, prior: x.prior_art, existing: x.best_existing_tool }
 }
