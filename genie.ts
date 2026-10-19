@@ -117,8 +117,10 @@ async function approveBuild(initial: App[] = []): Promise<App | null> {
     }
     state.builder = { slug: next.slug }
     advance(next.slug, 'awaiting_approval')
-    const n = uniqueAuthors(next.askers)
-    const { r, reply } = await ask(next, 'build', `${n} ${n === 1 ? 'person wants' : 'people want'} ${next.spec}. ${next.wish.url ? `The wish: ${next.wish.url} ` : ''}${HELP}.`.replace(/\s+/g, ' '), HELP)
+    // demand = people who asked + people who upvoted the wish (Reddit's score includes the author's own upvote)
+    const asked = uniqueAuthors(next.askers), upvoted = Math.max(0, (next.upvotes ?? 0) - 1)
+    const n = asked + upvoted
+    const { r, reply } = await ask(next, 'build', `${n} ${n === 1 ? 'person wants' : 'people want'} ${next.spec}${upvoted ? ` (${asked} asked, ${upvoted} upvoted)` : ''}. ${next.wish.url ? `The wish: ${next.wish.url} ` : ''}${HELP}.`.replace(/\s+/g, ' '), HELP)
     if (r !== 'yes') declined.add(next.slug)
     switch (r) {
       case 'yes':

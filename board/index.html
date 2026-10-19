@@ -268,7 +268,7 @@
         <div id="searching" class="live-line hide"><i></i><span></span><span class="t"></span></div>
         <ul id="searches" class="searches hide"></ul>
         <div id="hits" class="cards hide"></div>
-        <div id="count" class="count hide"><b data-v="0">0</b><span>people asked for this</span></div>
+        <div id="count" class="count hide"><b data-v="0">0</b><span>people want this</span></div>
         <div id="askers" class="cards hide"></div>
         <div id="verdict" class="verdict hide"></div>
         <div id="summary" class="summary hide"></div>
@@ -298,6 +298,8 @@
 const $ = (s) => document.querySelector(s)
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
 const uniq = (askers = []) => new Set(askers.map((a) => a.author.toLowerCase())).size
+// people who want it: unique askers + upvotes on the wish itself, minus the author's own automatic upvote
+const demand = (app) => uniq(app.askers) + Math.max(0, (app.upvotes ?? 0) - 1)
 const STEPS = [
   { label: 'Found', by: 'Parallel' }, { label: 'Wanted', by: 'Parallel' }, { label: 'You said yes', by: 'Photon' },
   { label: 'Built', by: 'Cline' }, { label: 'You said reply', by: 'Photon' }, { label: 'Live', by: 'Composio' },
@@ -417,12 +419,12 @@ function stepTimes(s, app) {
 }
 function renderRail(s, app) {
   const at = app ? AT[app.stage] ?? 0 : -1
-  const n = app ? uniq(app.askers) : 0
+  const n = app ? demand(app) : 0
   const times = stepTimes(s, app)
   STEPS.forEach((st, i) => {
     const el = $(`#step${i}`)
     el.classList.toggle('done', i < at); el.classList.toggle('now', i === at)
-    setText(el.querySelector('.l'), i === 1 && n ? `${n} people asked` : st.label)
+    setText(el.querySelector('.l'), i === 1 && n ? `${n} people want it` : st.label)
     const parts = (times[i] ?? []).filter(([, d]) => d).map(([by, d]) => `${by} ${d}`)
     setText(el.querySelector('.by'), i <= at ? (parts.length ? parts.join(' · ') : `via ${st.by}`) : '')
   })
@@ -476,7 +478,7 @@ const checkItems = (checks, live) => {
 
 function renderLeft(s, app) {
   const stage = app?.stage ?? 'none'
-  const n = app ? uniq(app.askers) : 0
+  const n = app ? demand(app) : 0
   clockApp = app && startOf(app) && !['exists', 'rejected'].includes(stage) ? app : null
   tickClock()
   setText($('#leftN'), app && s.candidates.length > 1 ? `${s.candidates.filter((a) => a.stage !== 'exists').length} candidates` : '')
@@ -538,7 +540,7 @@ function renderLeft(s, app) {
   const x = kind ? approvalOf(app, kind) : null
   const sumStage = stage === 'awaiting_approval' || stage === 'rejected'
   show($('#summary'), sumStage)
-  if (sumStage) setHTML($('#summary'), `<b>${n}</b><span>people asked</span>${v?.verdict ? `<span class="sep">·</span><span>${esc(v.verdict)}</span>` : ''}`)
+  if (sumStage) setHTML($('#summary'), `<b>${n}</b><span>people want it</span>${v?.verdict ? `<span class="sep">·</span><span>${esc(v.verdict)}</span>` : ''}`)
   show($('#phone'), !!x)
   if (x) {
     const i = (app.approvals ?? []).indexOf(x)
@@ -690,7 +692,7 @@ function renderFooter(s, app) {
 
   const others = s.candidates.filter((a) => a !== app && a.wish?.text).sort((a, b) => (startOf(b) ?? 0) - (startOf(a) ?? 0)).slice(0, 2)
   const items = others.length ? [{ key: 'h', cls: 'h', html: 'Also heard' }] : []
-  for (const a of others) items.push({ key: a.slug, cls: 'w', html: `<b>${esc(name(a))}</b>${a.askers?.length ? ` <span>· ${uniq(a.askers)} asked</span>` : ''}` })
+  for (const a of others) items.push({ key: a.slug, cls: 'w', html: `<b>${esc(name(a))}</b>${a.askers?.length ? ` <span>· ${demand(a)} want it</span>` : ''}` })
   sync($('#heard'), items)
 }
 let qrFor = ''
