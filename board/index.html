@@ -128,6 +128,7 @@
   .feed.done li:last-child .dot { animation: none; }
   .feed li .f { margin-left: auto; font: 500 12px/1 var(--mono); color: var(--muted); padding: 5px 7px; border: 1px solid var(--line-2); border-radius: 4px; white-space: nowrap; }
   .feed li.thought { background: transparent; border-style: dashed; color: var(--text-2); font-style: italic; }
+  .feed li > span:not(.dot):not(.f) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .feed li.thought .dot { background: var(--line-2); }
   .feed.small { width: 100%; gap: 6px; } .feed.small li { font-size: 16px; padding: 9px 14px; }
   .feed.small li .f { font-size: 11px; }
@@ -292,7 +293,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const uniq = (askers = []) => new Set(askers.map((a) => a.author.toLowerCase())).size
 const STEPS = [
   { label: 'Found', by: 'Parallel' }, { label: 'Wanted', by: 'Parallel' }, { label: 'You said yes', by: 'Photon' },
-  { label: 'Built', by: 'Cline' }, { label: 'You said post', by: 'Photon' }, { label: 'Live', by: 'Composio' },
+  { label: 'Built', by: 'Cline' }, { label: 'You said reply', by: 'Photon' }, { label: 'Live', by: 'Composio' },
 ]
 const AT = { found: 0, validating: 1, awaiting_approval: 2, building: 3, testing: 3, awaiting_post_approval: 4, launched: 6, maintaining: 6, exists: 1, rejected: 2, shelved: 5, failed: 3 }
 const LIVE = (a) => a.stage === 'launched' || a.stage === 'maintaining'
@@ -451,7 +452,8 @@ function renderPreview(app) {
 }
 const hitCard = (h, hot) => ({ key: h.url, tag: 'a', cls: `card ${hot ? 'hot' : ''}`, attrs: { href: h.url, target: '_blank', rel: 'noopener' }, html: `<div class="h">${esc(h.title)}</div><div class="m"><b>r/${esc(h.subreddit)}</b>${h.author ? `<span>u/${esc(h.author)}</span>` : ''}<span>${ago(h.postedAt)}</span><span class="u">${esc(short(h.url))}</span></div>` })
 const askerCard = (k) => ({ key: k.author.toLowerCase(), tag: 'a', cls: 'card', attrs: { href: k.url, target: '_blank', rel: 'noopener' }, html: `<div class="m"><span class="av" style="background:${AV_COLORS[hash(k.author) % AV_COLORS.length]}">${esc(initials(k.author))}</span><b>u/${esc(k.author)}</b><span>${esc(k.source && k.source !== 'reddit' ? k.source : `r/${sub(k.url) ?? 'reddit'}`)}</span><span>${ago(k.postedAt)}</span><span class="u">${esc(short(k.url))}</span></div><q>${esc(k.quote)}</q>` })
-const feedItems = (feed, max) => feed.slice(-max).map(feedItem)
+// no shell commands on the board: "Running cd … && node -e …" is a log line, not a story
+const feedItems = (feed, max) => feed.filter((l) => !/^Running\s/.test(l.text ?? '')).slice(-max).map(feedItem)
 const checkItems = (checks, live) => {
   const items = checks.map((c) => ({ key: c.label, tag: 'li', cls: `check ${c.ok ? 'ok' : 'bad'}`, html: `<span class="box">${CHECK}</span>${esc(c.label)}` }))
   if (live) items.push({ key: 'live', tag: 'li', cls: 'check live', html: `<span class="box"></span>${esc(live)}` })
@@ -534,7 +536,7 @@ function renderLeft(s, app) {
   // 4. Cline writing it, then Playwright checking it
   const isBuilding = stage === 'building' || stage === 'testing' || stage === 'failed'
   const feed = app?.build?.feed ?? []
-  show($('#feed'), isBuilding && feed.length > 0)
+  show($('#feed'), stage === 'building' && feed.length > 0) // once testing starts the checks take the space, or the column overflows into the rail
   if (isBuilding && feed.length) {
     $('#feed').classList.toggle('done', stage !== 'building')
     sync($('#feed'), [head(`<b>Cline</b> is writing the app <span class="t">${dur(app.build)}</span>`), ...feedItems(feed, stage === 'building' ? 6 : 2)])
@@ -674,7 +676,7 @@ function renderFooter(s, app) {
 
   const others = s.candidates.filter((a) => a !== app && a.wish?.text).sort((a, b) => (startOf(b) ?? 0) - (startOf(a) ?? 0)).slice(0, 2)
   const items = others.length ? [{ key: 'h', cls: 'h', html: 'Also heard' }] : []
-  for (const a of others) items.push({ key: a.slug, cls: 'w', html: `<b>${esc(a.wish.text)}</b>${a.stage === 'exists' && a.existingTool ? ` <span class="ex">→ already exists: ${esc(a.existingTool.name)}</span>` : a.askers?.length ? ` <span>· ${uniq(a.askers)} asked</span>` : ''}` })
+  for (const a of others) items.push({ key: a.slug, cls: 'w', html: `<b>${esc(a.spec ?? a.wish.text)}</b>${a.stage === 'exists' && a.existingTool ? ` <span class="ex">→ already exists: ${esc(a.existingTool.name)}</span>` : a.askers?.length ? ` <span>· ${uniq(a.askers)} asked</span>` : ''}` })
   sync($('#heard'), items)
 }
 let qrFor = ''
