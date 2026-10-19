@@ -8,6 +8,9 @@ import { approvalsAreFake } from './askApproval'
 import { tool, composioEnabled } from '../lib/composio'
 import { repoUrl } from '../lib/repo'
 import { postIdFromUrl } from '../lib/reddit'
+
+// /r/<sub>/comments/<post>/<slug>/<comment>/ → the comment id; a thread URL has none
+export const commentIdFromUrl = (url: string): string | undefined => url.match(/\/comments\/[a-z0-9]+\/[^/?#]*\/([a-z0-9]+)\/?(?:[?#]|$)/i)?.[1]
 import { deploy } from './deploy'
 
 export async function publish(app: App): Promise<string> {
@@ -57,7 +60,9 @@ async function replyReal(app: App, pagesUrl: string, launchTitle: string) {
     return { pagesUrl, launchPostId: '', launchTitle, launchUrl: '' }
   }
   try {
-    const r = await tool<CommentResult>('REDDIT_POST_REDDIT_COMMENT', { thing_id: `t3_${postId}`, text: replyText(app, pagesUrl) })
+    // a wish from a comment gets the reply under that comment, not on the whole thread
+    const commentId = commentIdFromUrl(app.wish.url)
+    const r = await tool<CommentResult>('REDDIT_POST_REDDIT_COMMENT', { thing_id: commentId ? `t1_${commentId}` : `t3_${postId}`, text: replyText(app, pagesUrl) })
     const c = r?.json?.data?.things?.[0]?.data
     const launchUrl = c?.permalink ? `https://www.reddit.com${c.permalink}` : app.wish.url
     console.log(`[composio] replied to u/${app.wish.author} on ${app.wish.url}: ${launchUrl}`)

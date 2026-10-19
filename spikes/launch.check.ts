@@ -3,6 +3,7 @@
 // `npx tsx spikes/launch.check.ts`
 import { postIdFromUrl } from '../lib/reddit'
 import { repoUrl, issuesUrl } from '../lib/repo'
+import { commentIdFromUrl } from '../steps/launch'
 import type { App } from '../lib/types'
 
 let failed = 0
@@ -23,6 +24,11 @@ const sampleApp = { slug: 'bill-splitter', repo: 'bill-splitter' } as App
 check('repoUrl builds the MIT repo link replyText drops into the reply', repoUrl(sampleApp), 'https://github.com/genie-wishes/bill-splitter')
 check('issuesUrl points at that same repo\'s issues', issuesUrl(sampleApp), 'https://github.com/genie-wishes/bill-splitter/issues')
 
+check('comment permalink → comment id', commentIdFromUrl('https://www.reddit.com/r/webdev/comments/17u929n/what_is_a_tool_you_wish_existed/k92abcd/'), 'k92abcd')
+check('comment permalink, no trailing slash', commentIdFromUrl('https://www.reddit.com/r/webdev/comments/17u929n/what_is_a_tool_you_wish_existed/k92abcd'), 'k92abcd')
+check('comment permalink with query', commentIdFromUrl('https://www.reddit.com/r/webdev/comments/17u929n/slug/k92abcd/?context=3'), 'k92abcd')
+check('thread url has no comment id', commentIdFromUrl('https://www.reddit.com/r/test/comments/1xa7b3a/genie_test_thread_please_ignore/'), undefined)
+check('bare thread url has no comment id', commentIdFromUrl('https://www.reddit.com/r/test/comments/1xa7b3a/'), undefined)
 if (failed) {
   console.log(`${failed} check(s) failed`)
   process.exit(1)
