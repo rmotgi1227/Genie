@@ -13,6 +13,7 @@ import { build, test } from './steps/build'
 import { launch, publish, pollReports, replyFixed } from './steps/launch'
 import { fix } from './steps/fix'
 import { scrub, suspicious } from './lib/guard'
+import { routeReply, HELP, HELP_POST, type Reply } from './lib/reply'
 
 const args = new Set(process.argv.slice(2))
 const PORT = Number(process.env.PORT ?? 3000)
@@ -21,18 +22,7 @@ const POLL_MS = Number(process.env.POLL_MS ?? 1000)
 // Reports filed by hand (POST /report). Merged with pollReports() every tick.
 const manualReports: Report[] = []
 
-// ── Approval switch. Deterministic, no model reads the reply. ──
-type Reply = 'yes' | 'no' | 'different' | 'idea' | 'unknown'
-export function routeReply(text: string): Reply {
-  const r = text.trim().toLowerCase()
-  if (/^(y|yes|yep|build|go|post|👍)$/u.test(r)) return 'yes'
-  if (/^(n|no|nope|skip|👎)$/u.test(r)) return 'no'
-  if (/^(d|different|another|next|other)$/.test(r)) return 'different'
-  if (r.length >= 8) return 'idea'
-  return 'unknown'
-}
-const HELP = 'Reply YES, NO, DIFFERENT, or text me your own idea'
-const HELP_POST = 'Reply YES, NO, or tell me what to change'
+// ── Approval switch lives in lib/reply.ts. Deterministic, no model reads the reply. ──
 
 // Asks until the reply means something. The help line is itself the next question,
 // so it never swallows the owner's answer.
