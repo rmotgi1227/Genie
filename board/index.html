@@ -196,7 +196,7 @@
   .rpreview iframe.on { opacity: 1; }
   .rpreview .vtag { top: 10px; right: 10px; }
   .rpreview .vtag.new { background: var(--accent); color: var(--accent-ink); }
-  .rpreview .nm { position: absolute; left: 10px; top: 10px; z-index: 2; font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 6px 8px; border-radius: 5px; background: rgba(13,12,10,.85); color: var(--text-2); border: 1px solid var(--line-2); }
+  .rpreview .nm { position: absolute; left: 10px; top: 10px; right: 64px; z-index: 2; font: 600 11px/1 var(--mono); letter-spacing: .08em; padding: 6px 8px; border-radius: 5px; background: rgba(13,12,10,.85); color: var(--text-2); border: 1px solid var(--line-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: max-content; max-width: calc(100% - 74px); }
   .diff { margin: 0; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: #0a0a09; font: 500 12.5px/1.5 var(--mono); text-align: left; overflow: hidden; animation: rise var(--fast) var(--ease) both; }
   .diff .dh { display: flex; gap: 12px; align-items: center; padding: 0 14px 8px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
   .diff .dh .add { color: #3fbf6a; } .diff .dh .del { color: #e5655b; }
@@ -305,7 +305,14 @@ const secs = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 
 const startOf = (a) => a.stageAt?.found ?? a.stageAt?.validating
 const CHECK = '<svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 4.5"/></svg>'
 const CHECK_LABELS = ['Loads with no errors', 'Core feature works', 'Footer and viewport in place', 'Screenshot taken']
-const name = (a) => a.spec ?? a.wish?.text ?? a.slug
+// A short product name from the one-line spec: "a link cleaner that strips tracking IDs…" → "Link Cleaner"
+const shortName = (t) => {
+  const head = String(t ?? '').replace(/^\s*(an?|the)\s+/i, '').split(/\s+(?:that|which|to|for|where|so|with|from)\s+|[:(,—-]/i)[0].trim()
+  const generic = /^(tool|app|software|program|extension|website|site|plugin|service|platform|cli)s?$/i
+  const words = (head.split(/\s+/).length < 2 || generic.test(head) ? String(t ?? '').replace(/^\s*(an?|the)\s+/i, '') : head).split(/\s+/).slice(0, 4).join(' ')
+  return words ? words.replace(/\b\w/g, (c) => c.toUpperCase()) : String(t ?? '')
+}
+const name = (a) => shortName(a.spec ?? a.wish?.text ?? a.slug)
 const OPEN = ['triaged', 'awaiting_approval', 'fixing', 'testing', 'shipping']
 const short = (u) => String(u ?? '').replace(/^https?:\/\/(www\.|old\.)?/, '').replace(/\/$/, '')
 let NOW = () => Date.now() // the replay moves this
@@ -554,7 +561,7 @@ function renderLeft(s, app) {
   show($('#app'), !!appStage)
   if (appStage) {
     const others = Math.max(0, n - 1)
-    const made = `<div class="k">Genie built this${app.wish.author ? ` for u/${esc(app.wish.author)}${others ? ` and ${others} other${others > 1 ? 's' : ''}` : ''}` : ''}${LIVE(app) ? '' : ' · not posted yet'}${app.build?.endedAt ? ` · Cline ${dur(app.build)}` : ''}</div><div class="t">${esc(name(app))}</div>`
+    const made = `<div class="k">Genie built this${app.wish.author ? ` for u/${esc(app.wish.author)}${others ? ` and ${others} other${others > 1 ? 's' : ''}` : ''}` : ''}${LIVE(app) ? '' : ' · not shared yet'}${app.build?.endedAt ? ` · Cline ${dur(app.build)}` : ''}</div><div class="t">${esc(name(app))}</div>`
     setHTML($('#made'), made)
     $('#preview').classList.toggle('short', stage === 'awaiting_post_approval')
     renderPreview(app)
@@ -676,7 +683,7 @@ function renderFooter(s, app) {
 
   const others = s.candidates.filter((a) => a !== app && a.wish?.text).sort((a, b) => (startOf(b) ?? 0) - (startOf(a) ?? 0)).slice(0, 2)
   const items = others.length ? [{ key: 'h', cls: 'h', html: 'Also heard' }] : []
-  for (const a of others) items.push({ key: a.slug, cls: 'w', html: `<b>${esc(a.spec ?? a.wish.text)}</b>${a.stage === 'exists' && a.existingTool ? ` <span class="ex">→ already exists: ${esc(a.existingTool.name)}</span>` : a.askers?.length ? ` <span>· ${uniq(a.askers)} asked</span>` : ''}` })
+  for (const a of others) items.push({ key: a.slug, cls: 'w', html: `<b>${esc(name(a))}</b>${a.askers?.length ? ` <span>· ${uniq(a.askers)} asked</span>` : ''}` })
   sync($('#heard'), items)
 }
 let qrFor = ''
