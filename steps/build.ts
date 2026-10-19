@@ -3,7 +3,8 @@
 //   REAL: `cline -y --json -t 180 -P $CLINE_PROVIDER -m $CLINE_MODEL "<task>"` in apps/<slug>/
 //   with template/CONTRACT.md copied in. Task = spec + askers' quotes + footer values.
 // test() is REAL: headless Chromium at 375px wide, fails on page/console errors, clicks the first
-//   button, checks the footer and viewport tag, saves apps/<slug>/screenshot.png.
+//   button that isn't a theme toggle, checks the footer and viewport tag, saves a first-visit
+//   apps/<slug>/screenshot.png.
 import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -108,7 +109,8 @@ export async function test(app: App, onCheck?: (check: Check) => void): Promise<
     if (errors.length) return fail(`page errors: ${errors.slice(0, 3).join(' | ')}`)
 
     // Core feature: the page is interactive and using it doesn't throw.
-    const buttons = page.locator('button, [role=button], input[type=submit]')
+    // A theme toggle isn't the core feature, and clicking it would save "light" and flip the screenshot.
+    const buttons = page.locator('button, [role=button], input[type=submit]').filter({ hasNot: page.locator('xpath=self::*[contains(translate(@class,"THEM","them"),"theme") or contains(translate(@aria-label,"THEM","them"),"theme") or contains(translate(@id,"THEM","them"),"theme")]') })
     const inputs = page.locator('input, select, textarea')
     let core = (await buttons.count()) > 0 || (await inputs.count()) > 0
     if (core && (await buttons.count()) > 0) {
@@ -126,9 +128,11 @@ export async function test(app: App, onCheck?: (check: Check) => void): Promise<
     if (!footerOk) return fail('footer missing')
     if (!viewportOk) return fail('viewport meta tag missing')
 
-    await page.goto(url, { waitUntil: 'load' }) // clean state for the screenshot
-    await page.waitForTimeout(300)
-    await page.screenshot({ path: join(appDir(app), 'screenshot.png') })
+    // First visit for the screenshot: a fresh context, so nothing the clicks saved in localStorage carries over.
+    const fresh = await (await browser.newContext({ viewport: { width: 375, height: 740 } })).newPage()
+    await fresh.goto(url, { waitUntil: 'load' })
+    await fresh.waitForTimeout(300)
+    await fresh.screenshot({ path: join(appDir(app), 'screenshot.png') })
     push('Screenshot taken', true)
     return { ok: true, screenshot: `/apps/${app.slug}/screenshot.png`, checks }
   } catch (e) {
