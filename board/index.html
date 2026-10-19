@@ -195,6 +195,11 @@
   .rpreview iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; opacity: 0; transition: opacity var(--slow) var(--ease); pointer-events: none; }
   .rpreview iframe.on { opacity: 1; }
   .rpreview .vtag { top: 10px; right: 10px; }
+  #run { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: rgba(13,12,10,.92); }
+  #run button { width: 168px; height: 168px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; display: grid; place-items: center; box-shadow: 0 0 0 0 rgba(240,165,58,.35); animation: halo 2.4s infinite; }
+  #run button svg { width: 58px; height: 58px; margin-left: 10px; }
+  #run b { font-size: 26px; letter-spacing: -.02em; } #run span { color: var(--muted); font-size: 16px; }
+  @keyframes halo { 0% { box-shadow: 0 0 0 0 rgba(240,165,58,.35); } 70% { box-shadow: 0 0 0 34px rgba(240,165,58,0); } 100% { box-shadow: 0 0 0 0 rgba(240,165,58,0); } }
   #again { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 20; font: 600 15px/1 var(--sans); padding: 12px 18px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); cursor: pointer; }
   #again:hover { background: var(--accent); color: var(--accent-ink); }
   .rpreview .vtag.new { background: var(--accent); color: var(--accent-ink); }
@@ -840,9 +845,14 @@ document.addEventListener('keydown', (e) => {
 // A click inside the app preview moves keyboard focus into the iframe; take it back so Space still works.
 addEventListener('blur', () => setTimeout(() => { if (document.activeElement?.tagName === 'IFRAME') { document.activeElement.blur(); window.focus() } }, 0))
 </script>
+<div id="run" class="hide"><button aria-label="Run Genie"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z" fill="currentColor"/></svg></button><b>Run Genie</b><span>Surf Reddit for wishes, text me, build, ship</span></div>
 <button id="again" class="hide" title="Sweep Reddit now instead of waiting for the next scheduled sweep">✦ Find another wish now</button>
 <script>
 // "Find another wish now": ends Genie's wait between wishes (POST /sweep). Shown only while Genie is waiting.
+document.querySelector('#run button').addEventListener('click', async () => {
+  document.getElementById('run').classList.add('hide')
+  await fetch('/run', { method: 'POST' }).catch(() => {})
+})
 document.getElementById('again').addEventListener('click', async (e) => {
   e.currentTarget.textContent = 'Surfing Reddit…'
   await fetch('/sweep', { method: 'POST' }).catch(() => {})
@@ -851,6 +861,7 @@ document.getElementById('again').addEventListener('click', async (e) => {
 setInterval(async () => {
   try {
     const s = await (await fetch('/state', { cache: 'no-store' })).json()
+    document.getElementById('run').classList.toggle('hide', !s.idle)
     document.getElementById('again').classList.toggle('hide', !(s.nextDiscoveryAt && s.nextDiscoveryAt > Date.now()))
   } catch {}
 }, 1500)

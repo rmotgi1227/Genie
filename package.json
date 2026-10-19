@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "tsx genie.ts",
+    "go": "tsx genie.ts --reset --idle",
     "demo": "tsx genie.ts --reset --once",
     "seed": "tsx genie.ts --reset --seed",
     "test:apps": "tsx spikes/playwright.ts",

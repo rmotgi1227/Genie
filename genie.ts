@@ -419,6 +419,10 @@ function serveFile(res: import('node:http').ServerResponse, root: string, rel: s
   res.end(readFileSync(file))
 }
 
+// Run Genie button: with --idle the loops wait for POST /run.
+let idle = args.has('--idle')
+let startRun: (() => void) | undefined
+
 // The board's buttons only work from this machine.
 const isLocal = (req: import('node:http').IncomingMessage) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '')
 
@@ -427,10 +431,18 @@ function startServer() {
     const url = new URL(req.url ?? '/', 'http://x')
     if (req.method === 'GET' && url.pathname === '/state') {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-      return res.end(JSON.stringify({ ...state, watch }))
+      return res.end(JSON.stringify({ ...state, watch, idle }))
     }
     // File a report by hand: POST /report?slug=<app> with the text as the body, or a JSON {slug, text, author}.
     // Sweep Reddit now instead of waiting for the schedule. Optional JSON {seedUrl, seedSpec, seedKind} seeds the next wish.
+    if (req.method === 'POST' && url.pathname === '/run') {
+      if (!isLocal(req)) return res.writeHead(403).end('local only')
+      const was = idle
+      startRun?.()
+      startRun = undefined
+      idle = false
+      return res.writeHead(202).end(was ? 'running' : 'already running')
+    }
     if (req.method === 'POST' && url.pathname === '/sweep') {
       if (!isLocal(req)) return res.writeHead(403).end('local only')
       let body = ''
@@ -473,6 +485,12 @@ async function main() {
   watch.reddit = watch.github = Date.now() // on from the first second, seeding included
   const beat = setInterval(() => { if (!liveApps().length) watch.reddit = watch.github = Date.now() }, 2000) // until the loops take over
   startServer()
+  if (args.has('--idle')) {
+    // --idle: only the board is up until someone presses Run Genie (POST /run)
+    console.log('[genie] idle, press Run Genie on the board to start')
+    await new Promise<void>((r) => { startRun = r })
+    idle = false
+  }
   if (args.has('--seed') || (args.has('--reset') && approvalsAreFake())) await seedLibrary()
   clearInterval(beat)
   await Promise.all([buildLoop(), maintainLoop()])
