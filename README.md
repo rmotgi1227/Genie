@@ -4,12 +4,24 @@
 
 Nothing goes public without a YES from a human.
 
-> Built in one afternoon at the Cline × Composio × Parallel hackathon, Oct 19 2026. **Video:** _link coming_
+> 🏆 **Won the Cline × Composio × Parallel hackathon** (San Francisco, Oct 19 2026, part of Open Source AI Week), built in one afternoon. **Demo video:** _link coming_
+
+## Wishes Genie granted on demo day
+
+Real people, real Reddit posts, real repos. Each one went from wish to live in under 10 minutes, with two YES texts in between.
+
+| Wish | Who asked | Demand | Live | Code (MIT) |
+|---|---|---|---|---|
+| **Just The Recipe**: paste a recipe page, get only the ingredients and steps | u/T1LT3D3412, [r/SomebodyMakeThis](https://www.reddit.com/r/SomebodyMakeThis/comments/1wsky2u/a_recipe_app_that_gives_you_just_the_recipe/) | 29 people | [just-the-recipe-paste.vercel.app](https://just-the-recipe-paste.vercel.app) | [repo](https://github.com/rmotgi1227/just-the-recipe-paste) |
+| **Minimal bookmark manager**: save links with tags, search instantly | u/TyrantRC, [r/software](https://www.reddit.com/r/software/comments/1ttxi2k/softwareprograms_you_wish_existed/op5ssrw/) | 11 people | [a-clean-minimal-bookmark.vercel.app](https://a-clean-minimal-bookmark.vercel.app) | [repo](https://github.com/rmotgi1227/a-clean-minimal-bookmark) |
+| **Link cleaner**: strip `si=`, `utm_`, `fbclid` from any URL | u/Iampepeu, [r/software](https://www.reddit.com/r/software/comments/1ttxi2k/softwareprograms_you_wish_existed/op5yi6e/) | 2 people | [a-link-cleaner-that-strips.vercel.app](https://a-link-cleaner-that-strips.vercel.app) | [repo](https://github.com/rmotgi1227/a-link-cleaner-that-strips) |
+
+"Demand" is unique people who asked plus people who upvoted the wish, counted in code from Reddit, never by a model.
 
 ## The loop
 
 ```
- every 30 min                                                                      forever, every live app
+  every hour                                                                       forever, every live app
  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────┐   ┌────────────────────────────┐
  │ 1. Find      │→ │ 2. Ask you   │→ │ 3. Build     │→ │ 4. Ask you   │→ │ 5. Ship                   │   │ 6. Look after it           │
  │ a wish       │  │ (text YES)   │  │ + test       │  │ (screenshot) │  │ MIT repo · deploy · reply │ → │ issue → text → YES → v2    │
@@ -39,8 +51,11 @@ npm run demo     # the whole story with sample data, no keys needed
 For the real thing, copy `.env.example` to `.env` and fill in the keys (Parallel, Composio with Reddit + GitHub connected, Cline, Vercel, Photon), then:
 
 ```bash
-npm start        # board on http://localhost:3000
+npm run go       # board on http://localhost:3000, press ▶ Run Genie to start
+npm start        # same, but starts right away and keeps the existing library
 ```
+
+Optional: set `SEED_WISH_URL` to a Reddit post or comment link to make that the first wish Genie offers you (still read from Reddit and checked by Parallel).
 
 Every step falls back to sample data when its key is empty, and nothing is deployed, posted or texted on a scripted YES.
 
@@ -49,6 +64,12 @@ Every step falls back to sample data when its key is empty, and nothing is deplo
 - Three human approvals by text: before building, before anything goes public (with a screenshot), and before any change to a live app.
 - Text from Reddit and GitHub is filtered for prompt injection and passed to Cline marked as untrusted.
 - Genie replies only to people who asked publicly, says it's an AI in every message, and never retries a rate-limited post in a loop.
+
+## What's next
+
+Genie runs its coding agent on an open model (Kimi, through Cline). We won an **NVIDIA DGX Spark**, so next Genie runs the model on our own hardware: no API bill per wish, and anyone can run their own Genie.
+
+Planning notes and the clickable UI mockup from the hackathon are in [`docs/hackathon/`](docs/hackathon/).
 
 ## License
 

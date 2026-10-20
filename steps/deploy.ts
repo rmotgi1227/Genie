@@ -16,7 +16,7 @@ const TOKEN = process.env.VERCEL_TOKEN
 const SCOPE = process.env.VERCEL_SCOPE
 const DEPLOY_ROOT = '.deploy'
 const PROTECTION_WAIT_MS = 60_000
-// `vercel deploy` is ~5-15s for a static index.html (see build-plan.md); 2 min is generous headroom.
+// `vercel deploy` is ~5-15s for a static index.html (see docs/hackathon/build-plan.md); 2 min is generous headroom.
 // Without a cap a wedged CLI (bad token, network stall, an interactive prompt it's waiting on)
 // would hang this forever and block the rest of Genie's loop behind it.
 const DEPLOY_TIMEOUT_MS = 120_000
@@ -129,7 +129,7 @@ async function disableDeploymentProtection(slug: string) {
 
 // Team-scoped REST calls take `teamId` (the `team_...` id) OR `slug` (the team's URL slug) as
 // separate query params (confirmed on the same update-project docs page). VERCEL_SCOPE is
-// documented in build-plan.md as "team slug", so it belongs in `slug=`, not `teamId=`.
+// documented in docs/hackathon/build-plan.md as "team slug", so it belongs in `slug=`, not `teamId=`.
 async function vercelApi(path: string, init: RequestInit = {}) {
   const qs = SCOPE ? `?slug=${encodeURIComponent(SCOPE)}` : ''
   const res = await fetch(`https://api.vercel.com${path}${qs}`, {

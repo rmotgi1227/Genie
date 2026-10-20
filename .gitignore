@@ -5,3 +5,8 @@ state.json
 /spikes/out/
 .deploy/
 /.cline-data/
+
+# local tooling, not part of Genie
+.agents/
+.claude/
+skills-lock.json
