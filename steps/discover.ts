@@ -246,10 +246,19 @@ const seeded = new Set<string>()
 async function seedWish(): Promise<App | undefined> {
   const url = process.env.SEED_WISH_URL
   const id = url?.match(/\/comments\/[a-z0-9]+\/[^/?#]*\/([a-z0-9]+)/i)?.[1]
-  if (!url || !id) return undefined
+  const postId = url ? postIdFromUrl(url) : undefined
+  if (!url || (!id && !postId)) return undefined
   try {
-    const r = await tool<{ things?: { data?: { author?: string; body?: string; score?: number; subreddit?: string } }[] }>('REDDIT_RETRIEVE_SPECIFIC_COMMENT', { id: `t1_${id}` })
-    const c = r?.things?.[0]?.data
+    // a comment permalink seeds that comment; a thread URL seeds the post itself (title + text, its score)
+    let c: { author?: string; body?: string; score?: number; subreddit?: string } | undefined
+    if (id) {
+      const r = await tool<{ things?: { data?: { author?: string; body?: string; score?: number; subreddit?: string } }[] }>('REDDIT_RETRIEVE_SPECIFIC_COMMENT', { id: `t1_${id}` })
+      c = r?.things?.[0]?.data
+    } else {
+      const r = await tool<{ post_listing?: { data?: { children?: { data?: { author?: string; title?: string; selftext?: string; score?: number; subreddit?: string } }[] } } }>('REDDIT_RETRIEVE_POST_COMMENTS', { article: postId, limit: 1, depth: 1 })
+      const p = r?.post_listing?.data?.children?.[0]?.data
+      c = p && { author: p.author, body: `${p.title ?? ''}. ${p.selftext ?? ''}`.trim(), score: p.score, subreddit: p.subreddit }
+    }
     if (!c?.author || !c.body) throw new Error('comment not found')
     const quote = scrub(c.body, 300)
     const app = newApp(process.env.SEED_WISH_SPEC || quote, c.author, 'reddit', url)
